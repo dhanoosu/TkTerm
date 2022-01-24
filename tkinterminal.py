@@ -342,6 +342,7 @@ if __name__ == "__main__":
     old_stderr = sys.stderr
 
     root=tk.Tk()
+    root.title("tkinterminal - Terminal Emulator")
     root.geometry("700x400")
 
     app = App(root)
