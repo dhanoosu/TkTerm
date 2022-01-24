@@ -53,52 +53,81 @@ class App(tk.Tk):
         self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText)
         self.statusLabel.pack(side=LEFT)
 
+
+        self.shellMapping = {
+            "csh" : "/bin/csh",
+            "bash" : "/bin/sh",
+            "windows" : None
+        }
+
+        self.shellComboBox = ttk.Combobox(self.frameStatusBar, state="readonly")
+        self.shellComboBox.pack(side=RIGHT)
+        self.shellComboBox['values'] = list(self.shellMapping)
+
+        self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
+
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
         self.Terminal.pack(side=LEFT, fill=BOTH, expand=True)
 
-        self.Terminal.bind("<Return>", self.do_return)
-        self.Terminal.bind("<Up>", self.do_upArrow)
-        self.Terminal.bind("<Down>", self.do_downArrow)
-        self.Terminal.bind("<BackSpace>", self.do_backspace)
-        self.Terminal.bind("<Left>", self.do_leftArrow)
-        self.Terminal.bind('<Button-1>', self.do_click)
-        self.Terminal.bind('<ButtonRelease-1>', self.do_clickRelease)
-        self.Terminal.bind('<Tab>', self.do_tab)
-        self.Terminal.bind('<Home>', self.do_home)
-        self.Terminal.bind('<Control-c>', self.do_cancel)
+        self.Terminal.bind("<Return>",              self.do_return)
+        self.Terminal.bind("<Up>",                  self.do_upArrow)
+        self.Terminal.bind("<Down>",                self.do_downArrow)
+        self.Terminal.bind("<BackSpace>",           self.do_backspace)
+        self.Terminal.bind("<Left>",                self.do_leftArrow)
+        self.Terminal.bind('<Button-1>',            self.do_click)
+        self.Terminal.bind('<ButtonRelease-1>',     self.do_clickRelease)
+        self.Terminal.bind('<Tab>',                 self.do_tab)
+        self.Terminal.bind('<Home>',                self.do_home)
+        self.Terminal.bind('<Control-c>',           self.do_cancel)
 
         self.index = None
         self.count = 0;
 
         self.terminalThread = None
 
+        if (os.name == 'nt'):
+            self.shellComboBox.set("windows")
+        else:
+            self.shellComboBox.set("csh")
+
+
         # Automatically set focus to Terminal screen when initialised
         self.Terminal.focus_set()
+
+    def update_shell(self, *args):
+        self.shellComboBox.selection_clear()
+        self.Terminal.focus()
 
     def do_cancel(self, *args):
 
         # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
             if (os.name == 'nt'):
-                subprocess.Popen("TASKKILL /F /PID {pid} /T".format(pid=self.terminalThread.current_thread.pid))
+                subprocess.Popen("TASKKILL /F /PID {pid} /T".format(pid=self.terminalThread.process.pid))
             else:
-                self.terminalThread.current_thread.kill()
+                os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
+                self.terminalThread.process.wait()
 
         else:
             # Clear commands
             self.insert_new_line()
             self.print_basecmd()
 
+
     class TerminalPrint(threading.Thread):
 
-        def __init__(self, cmd):
+        def __init__(self, outer_instance, cmd):
             threading.Thread.__init__(self)
             self.daemon = True
             self.cmd = cmd
             self.returnCode = 0
 
-            self.current_thread = None
+            self.process = None
+
+            # Attach outer class instance
+            self.outer_instance = outer_instance
+            self.shellMapping = outer_instance.shellMapping
 
 
         def run(self):
@@ -110,26 +139,27 @@ class App(tk.Tk):
                 "stdout"                : subprocess.PIPE,
                 "stderr"                : subprocess.STDOUT,
                 "universal_newlines"    : True,
-                # "executable"            : "/bin/csh",
                 "cwd"                   : os.getcwd()
             }
 
+            # Modify shell executable based on selected shell combobox variable
+            shellSelected = self.outer_instance.shellComboBox.get()
+            process_options['executable'] = self.shellMapping[shellSelected]
+
             if self.cmd is not "":
 
-                if (os.name != 'nt'): self.cmd = "exec " + self.cmd
-
-                self.current_thread =  subprocess.Popen(self.cmd, **process_options)
+                self.process =  subprocess.Popen(self.cmd, **process_options)
 
                 while True:
-                    output = self.current_thread.stdout.readline()
-                    rc = self.current_thread.poll()
+                    output = self.process.stdout.readline()
+                    rc = self.process.poll()
                     if output == '' and rc is not None:
                         break
 
                     if output:
                         print(output, end='')
 
-                self.current_thread = None
+                self.process = None
 
                 self.returnCode = rc
 
@@ -174,7 +204,7 @@ class App(tk.Tk):
     def do_tab(self, *args):
         """ Tab completion """
 
-        # Windows use backward slash
+        # Windows uses backward slash
         # Uninx uses forward slash
         slash = os.sep
 
@@ -268,7 +298,7 @@ class App(tk.Tk):
         else:
             self.insert_new_line()
 
-            self.terminalThread = self.TerminalPrint(cmd)
+            self.terminalThread = self.TerminalPrint(self, cmd)
             self.terminalThread.start()
 
             self.count = 0
