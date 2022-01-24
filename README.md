@@ -6,9 +6,11 @@ The Tkinter GUI library is built into python, so no additional components are ne
 
 Requires Python version 3 and above
 
-## Sample pictures
-<coming soon ...>
-
+## Screenshots
+<p align="center">
+<img src="img/snapshot1.png">
+</p>
+  
 ## Features
 - Compatible with Windows and Unix systems
 - Return Code (RC) of previous run commands is shown at the bottom status bar
