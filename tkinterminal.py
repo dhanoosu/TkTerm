@@ -66,24 +66,29 @@ class App(tk.Tk):
         self.Terminal.bind('<ButtonRelease-1>', self.do_clickRelease)
         self.Terminal.bind('<Tab>', self.do_tab)
         self.Terminal.bind('<Home>', self.do_home)
-        self.Terminal.bind('<Control-c>', self.kill_process)
+        self.Terminal.bind('<Control-c>', self.do_cancel)
 
         self.index = None
         self.count = 0;
 
         self.terminalThread = None
 
-        # Automatically set focus to Terminal screen when intialised
+        # Automatically set focus to Terminal screen when initialised
         self.Terminal.focus_set()
 
-    def kill_process(self, *args):
+    def do_cancel(self, *args):
 
+        # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
             if (os.name == 'nt'):
                 subprocess.Popen("TASKKILL /F /PID {pid} /T".format(pid=self.terminalThread.current_thread.pid))
             else:
                 self.terminalThread.current_thread.kill()
 
+        else:
+            # Clear commands
+            self.insert_new_line()
+            self.print_basecmd()
 
     class TerminalPrint(threading.Thread):
 
