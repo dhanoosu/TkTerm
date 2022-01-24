@@ -73,6 +73,9 @@ class App(tk.Tk):
 
         self.terminalThread = None
 
+        # Automatically set focus to Terminal screen when intialised
+        self.Terminal.focus_set()
+
     def kill_process(self, *args):
 
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
