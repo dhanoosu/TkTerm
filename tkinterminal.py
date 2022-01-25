@@ -26,24 +26,28 @@ class Redirect():
         if self.autoscroll:
             self.widget.see("end")
 
-class App(tk.Tk):
-    def __init__(self, master):
+class App(tk.Frame):
+    def __init__(self, parent, **kwargs):
         # super().__init__()
-        self.master = master
-        self.after = master.after
+        tk.Frame.__init__(self, parent, **kwargs)
 
-        self.frameTerminal = tk.Frame(master, borderwidth=0)
+        self.basename = ""
 
-        self.Terminal = tk.Text(self.frameTerminal, bg="black", fg="white", insertbackground="white", highlightthickness = 0)
-        self.Terminal['blockcursor'] = True
+        # get the root after
+        self.after = self.winfo_toplevel().after
+
+        self.frameTerminal = tk.Frame(self, borderwidth=0)
+
+        self.TerminalScreen = tk.Text(self.frameTerminal, bg="black", fg="white", insertbackground="white", highlightthickness = 0)
+        self.TerminalScreen['blockcursor'] = True
 
         scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
 
-        self.Terminal['yscrollcommand'] = scrollbar.set
-        scrollbar['command'] = self.Terminal.yview
+        self.TerminalScreen['yscrollcommand'] = scrollbar.set
+        scrollbar['command'] = self.TerminalScreen.yview
         scrollbar.pack(side=RIGHT, fill=Y)
 
-        self.frameStatusBar = tk.Frame(master, borderwidth=0)
+        self.frameStatusBar = tk.Frame(self, borderwidth=0)
 
         self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green")
         self.returnCodeLabel.pack(side=LEFT)
@@ -68,24 +72,25 @@ class App(tk.Tk):
 
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
-        self.Terminal.pack(side=LEFT, fill=BOTH, expand=True)
+        self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True)
 
-        self.Terminal.bind("<Return>",              self.do_return)
-        self.Terminal.bind("<Up>",                  self.do_upArrow)
-        self.Terminal.bind("<Down>",                self.do_downArrow)
-        self.Terminal.bind("<BackSpace>",           self.do_backspace)
-        self.Terminal.bind("<Left>",                self.do_leftArrow)
-        self.Terminal.bind('<Button-1>',            self.do_click)
-        self.Terminal.bind('<ButtonRelease-1>',     self.do_clickRelease)
-        self.Terminal.bind('<Tab>',                 self.do_tab)
-        self.Terminal.bind('<Home>',                self.do_home)
-        self.Terminal.bind('<Control-c>',           self.do_cancel)
+        self.TerminalScreen.bind("<Return>",              self.do_return)
+        self.TerminalScreen.bind("<Up>",                  self.do_upArrow)
+        self.TerminalScreen.bind("<Down>",                self.do_downArrow)
+        self.TerminalScreen.bind("<BackSpace>",           self.do_backspace)
+        self.TerminalScreen.bind("<Left>",                self.do_leftArrow)
+        self.TerminalScreen.bind('<Button-1>',            self.do_click)
+        self.TerminalScreen.bind('<ButtonRelease-1>',     self.do_clickRelease)
+        self.TerminalScreen.bind('<Tab>',                 self.do_tab)
+        self.TerminalScreen.bind('<Home>',                self.do_home)
+        self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
 
         self.index = None
         self.count = 0;
 
         self.terminalThread = None
 
+        # Sets default shell based on operating system
         if (os.name == 'nt'):
             self.shellComboBox.set("windows")
         else:
@@ -93,11 +98,11 @@ class App(tk.Tk):
 
 
         # Automatically set focus to Terminal screen when initialised
-        self.Terminal.focus_set()
+        self.TerminalScreen.focus_set()
 
     def update_shell(self, *args):
         self.shellComboBox.selection_clear()
-        self.Terminal.focus()
+        self.TerminalScreen.focus()
 
     def do_cancel(self, *args):
 
@@ -112,7 +117,7 @@ class App(tk.Tk):
         else:
             # Clear commands
             self.insert_new_line()
-            self.print_basecmd()
+            self.print_basename()
 
 
     class TerminalPrint(threading.Thread):
@@ -164,39 +169,36 @@ class App(tk.Tk):
                 self.returnCode = rc
 
 
-            global basecmd
-            basecmd = os.getcwd() + ">> "
-            print(basecmd, end='')
+            self.basename = os.getcwd() + ">> "
+            print(self.basename, end='')
 
 
     def clear_screen(self):
-        self.Terminal.delete("1.0", END)
-        self.print_basecmd()
+        self.TerminalScreen.delete("1.0", END)
+        self.print_basename()
 
-    def print_basecmd(self):
-        global basecmd
-        print(basecmd, end='')
+    def print_basename(self):
+        print(self.basename, end='')
 
-    def set_basecmd(self, text):
+    def set_basename(self, text):
 
-        global basecmd
-        basecmd = text + ">> "
+        self.basename = text + ">> "
 
     def do_home(self, *args):
 
-        pos = get_last_line(self.Terminal)
+        pos = get_last_line(self.TerminalScreen)
         pos = str(pos).split('.')[0]
-        offset = '.' + str(len(basecmd))
+        offset = '.' + str(len(self.basename))
         new_pos = pos + offset
 
-        self.Terminal.mark_set("insert", new_pos)
+        self.TerminalScreen.mark_set("insert", new_pos)
         return "break"
 
     def get_pos_before_cmd(self):
         # Get cmd position
-        pos = get_last_line(self.Terminal)
+        pos = get_last_line(self.TerminalScreen)
         pos_integral = str(pos).split('.')[0]
-        offset = '.' + str(len(basecmd))
+        offset = '.' + str(len(self.basename))
         new_pos = pos_integral + offset
 
         return new_pos
@@ -210,7 +212,7 @@ class App(tk.Tk):
 
         new_pos = self.get_pos_before_cmd()
 
-        raw_cmd = self.Terminal.get(new_pos, "end-1c")
+        raw_cmd = self.TerminalScreen.get(new_pos, "end-1c")
         cmd = raw_cmd
 
         if cmd == "":
@@ -240,7 +242,7 @@ class App(tk.Tk):
         return_cmd = raw_cmd
 
         if common_path != "":
-            self.Terminal.delete(new_pos, END)
+            self.TerminalScreen.delete(new_pos, END)
             return_cmd += common_path[len(last_cmd):]
 
             # if len(cd_children) == 1:
@@ -252,7 +254,7 @@ class App(tk.Tk):
             self.insert_new_line()
             print('\n'.join(cd_children))
 
-            self.print_basecmd()
+            self.print_basename()
             print(return_cmd, end='')
 
 
@@ -260,23 +262,23 @@ class App(tk.Tk):
 
     def do_clickRelease(self, *args):
 
-        self.Terminal.mark_set("insert", self.index)
+        self.TerminalScreen.mark_set("insert", self.index)
 
     def do_click(self, *args):
 
-        self.index = self.Terminal.index("insert")
-        self.Terminal.mark_set("insert", self.index)
+        self.index = self.TerminalScreen.index("insert")
+        self.TerminalScreen.mark_set("insert", self.index)
         # return "break"
 
     def do_return(self, *args):
 
         new_pos = self.get_pos_before_cmd()
 
-        cmd = self.Terminal.get(new_pos, "end-1c").strip()
+        cmd = self.TerminalScreen.get(new_pos, "end-1c").strip()
 
         if cmd == "":
             self.insert_new_line()
-            self.print_basecmd()
+            self.print_basename()
             pass
         elif cmd == "clear":
             self.clear_screen()
@@ -286,7 +288,7 @@ class App(tk.Tk):
 
             if os.path.exists(path):
                 os.chdir(path)
-                self.set_basecmd(path)
+                self.set_basename(path)
                 self.insert_new_line()
                 self.set_returnCode(0)
             else:
@@ -294,7 +296,7 @@ class App(tk.Tk):
                 print("\"{}\": No such file or directory.".format(path))
                 self.set_returnCode(1)
 
-            self.print_basecmd()
+            self.print_basename()
         else:
             self.insert_new_line()
 
@@ -309,20 +311,16 @@ class App(tk.Tk):
 
     def do_backspace(self, *args):
 
-        global basecmd
+        index = self.TerminalScreen.index("insert-1c")
 
-        index = self.Terminal.index("insert-1c")
-
-        if int(str(index).split('.')[1]) < len(basecmd):
+        if int(str(index).split('.')[1]) < len(self.basename):
             return "break"
 
     def do_leftArrow(self, *args):
 
-        global basecmd
+        index = self.TerminalScreen.index("insert-1c")
 
-        index = self.Terminal.index("insert-1c")
-
-        if int(str(index).split('.')[1]) < len(basecmd):
+        if int(str(index).split('.')[1]) < len(self.basename):
             return "break"
 
 
@@ -335,7 +333,7 @@ class App(tk.Tk):
 
     def insert_new_line(self):
 
-        self.Terminal.insert(END, "\n")
+        self.TerminalScreen.insert(END, "\n")
 
     def monitor(self, progress_thread):
 
@@ -365,26 +363,30 @@ class App(tk.Tk):
         self.returnCodeLabel['text'] = "RC: {}".format(rc)
 
 
+class Terminal(App):
+
+    """ Terminal widget """
+
+    def __init__(self, *args, **kwargs):
+
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+
+        super().__init__(*args, **kwargs)
+
+        sys.stdout = Redirect(self.TerminalScreen)
+        sys.stderr = Redirect(self.TerminalScreen)
+
+        self.basename = os.getcwd() + ">> "
+        self.print_basename()
 
 if __name__ == "__main__":
-
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
 
     root=tk.Tk()
     root.title("tkinterminal - Terminal Emulator")
     root.geometry("700x400")
 
-    app = App(root)
-
-    sys.stdout = Redirect(app.Terminal)
-    sys.stderr = Redirect(app.Terminal)
-
-    basecmd = os.getcwd() + ">> "
-
-    print(basecmd, end='')
+    terminal = Terminal(root)
+    terminal.pack(expand=True, fill='both')
 
     root.mainloop()
-
-    sys.stdout = old_stdout
-    sys.stderr = old_stderr
