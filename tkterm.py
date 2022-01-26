@@ -385,7 +385,7 @@ class Terminal(App):
 if __name__ == "__main__":
 
     root = tk.Tk()
-    root.title("tkinterminal - Terminal Emulator")
+    root.title("TkTerm - Terminal Emulator")
     root.geometry("700x400")
 
     terminal = Terminal(root)
