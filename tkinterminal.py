@@ -165,13 +165,10 @@ class App(tk.Frame):
                         print(output, end='')
 
                 self.process = None
-
                 self.returnCode = rc
 
-
-            self.basename = os.getcwd() + ">> "
-            print(self.basename, end='')
-
+            self.outer_instance.set_basename(os.getcwd())
+            self.outer_instance.print_basename()
 
     def clear_screen(self):
         self.TerminalScreen.delete("1.0", END)
@@ -367,12 +364,13 @@ class Terminal(App):
 
     """ Terminal widget """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent, *args, **kwargs):
 
         old_stdout = sys.stdout
         old_stderr = sys.stderr
 
-        super().__init__(*args, **kwargs)
+        super().__init__(parent, *args, **kwargs)
+        parent.bind("<Configure>", self.on_resize)
 
         sys.stdout = Redirect(self.TerminalScreen)
         sys.stderr = Redirect(self.TerminalScreen)
@@ -380,9 +378,13 @@ class Terminal(App):
         self.basename = os.getcwd() + ">> "
         self.print_basename()
 
+    def on_resize(self, *args):
+        """Auto scroll to bottom when resize event happens"""
+        self.TerminalScreen.see(END)
+
 if __name__ == "__main__":
 
-    root=tk.Tk()
+    root = tk.Tk()
     root.title("tkinterminal - Terminal Emulator")
     root.geometry("700x400")
 
