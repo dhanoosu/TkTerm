@@ -359,6 +359,12 @@ class App(tk.Frame):
 
         self.returnCodeLabel['text'] = "RC: {}".format(rc)
 
+    def run_command(self, cmd):
+        """ Print and execute command on terminal """
+
+        print(cmd, end='')
+        self.do_return()
+
 
 class Terminal(App):
 
