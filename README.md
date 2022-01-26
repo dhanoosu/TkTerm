@@ -15,16 +15,31 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 - Unix-like tab completion on files and directories
 
 ## Requirements
-The Tkinter GUI library is built into Python, so no additional components are needded.
+The Tkinter GUI library is built into Python, so no additional installation is needded.
 
-Requires Python version 3 and above.
+Requires at least Python version 3 and above.
 
-## Usage
-Simply run the script with
+## Standalone usage
+Run standalone script simply with
 ```shell
 $> python tkinterminal.py
 ```
 
----
+## Integration with other Tkinter application
+The Terminal is implemented a `Frame` widget and can be easily be integrated to other Tkinter application by
 
-## Integration (TODO)
+```python
+import tkinter as tk
+from tkinter import *
+from tkinterminal import Terminal
+
+root = tk.Tk()
+
+terminal = Terminal(root)
+terminal.pack(fill=BOTH, expand=True)
+
+root.mainloop()
+```
+
+## Customisation options
+-TODO-
