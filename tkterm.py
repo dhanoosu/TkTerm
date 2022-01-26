@@ -38,7 +38,7 @@ class App(tk.Frame):
 
         self.frameTerminal = tk.Frame(self, borderwidth=0)
 
-        self.TerminalScreen = tk.Text(self.frameTerminal, bg="black", fg="white", insertbackground="white", highlightthickness = 0)
+        self.TerminalScreen = tk.Text(self.frameTerminal, bg="#1F1E1E", fg="#E6E6E6", insertbackground="white", highlightthickness = 0)
         self.TerminalScreen['blockcursor'] = True
 
         scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
@@ -49,12 +49,12 @@ class App(tk.Frame):
 
         self.frameStatusBar = tk.Frame(self, borderwidth=0)
 
-        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green")
+        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("fixed"), anchor=W, width=8)
         self.returnCodeLabel.pack(side=LEFT)
 
         self.statusText = StringVar()
         self.statusText.set("Status: IDLE")
-        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText)
+        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("fixed"))
         self.statusLabel.pack(side=LEFT)
 
 
