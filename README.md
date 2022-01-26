@@ -1,4 +1,4 @@
-# TkinTerminal - Terminal Emulator
+# TkTerm - Tkinter Terminal Emulator
 A fully functional terminal emulator built on Tkinter library - perform all basic commands of a terminal
 
 <p align="center">
@@ -22,7 +22,7 @@ Requires at least Python version 3 and above.
 ## Standalone usage
 Run standalone script simply with
 ```shell
-$> python tkinterminal.py
+$> python tkterm.py
 ```
 
 ## Integration with other Tkinter application
@@ -31,7 +31,7 @@ The Terminal is implemented a `Frame` widget and can be easily be integrated to 
 ```python
 import tkinter as tk
 from tkinter import *
-from tkinterminal import Terminal
+from tkterm import Terminal
 
 root = tk.Tk()
 
