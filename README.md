@@ -12,6 +12,7 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 - Return Code (RC) of previous run commands is shown at the bottom status bar
 - Status message: IDLE or Working to show if current process is executing
 - Ctrl-C to kill current running process
+- UP and DOWN arrow to cycle between next and previous commands in history
 - Unix-like tab completion on files and directories
 
 ## Requirements

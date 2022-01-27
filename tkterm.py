@@ -32,6 +32,8 @@ class App(tk.Frame):
         tk.Frame.__init__(self, parent, **kwargs)
 
         self.basename = ""
+        self.commandIndex = -1
+        self.commandHistory = []
 
         # get the root after
         self.after = self.winfo_toplevel().after
@@ -178,27 +180,37 @@ class App(tk.Frame):
         print(self.basename, end='')
 
     def set_basename(self, text):
-
         self.basename = text + ">> "
 
     def do_home(self, *args):
+        """ Press HOME to return to the start position of command """
 
-        pos = get_last_line(self.TerminalScreen)
-        pos = str(pos).split('.')[0]
-        offset = '.' + str(len(self.basename))
-        new_pos = pos + offset
+        pos = self.get_pos_after_basename()
 
-        self.TerminalScreen.mark_set("insert", new_pos)
+        self.TerminalScreen.mark_set("insert", pos)
         return "break"
 
-    def get_pos_before_cmd(self):
-        # Get cmd position
+    def get_pos_after_basename(self):
+        """ Return starting position of the command """
+
         pos = get_last_line(self.TerminalScreen)
         pos_integral = str(pos).split('.')[0]
         offset = '.' + str(len(self.basename))
         new_pos = pos_integral + offset
 
         return new_pos
+
+    def get_cmd(self):
+        """ Return command after the basename """
+    
+        pos = self.get_pos_after_basename()
+        return self.TerminalScreen.get(pos, "end-1c")
+
+    def delete_cmd(self):
+        """ Delete command after basename """
+
+        pos = self.get_pos_after_basename()
+        self.TerminalScreen.delete(pos, END)
 
     def do_tab(self, *args):
         """ Tab completion """
@@ -207,11 +219,12 @@ class App(tk.Frame):
         # Uninx uses forward slash
         slash = os.sep
 
-        new_pos = self.get_pos_before_cmd()
-
-        raw_cmd = self.TerminalScreen.get(new_pos, "end-1c")
+        raw_cmd = self.get_cmd()
         cmd = raw_cmd
 
+        # Always focus on the last command
+        # E.g., "cd folder" : only focus on the last command "folder"
+        # Get the last space-separated command
         if cmd == "":
             last_cmd = ""
         elif cmd[-1] == " ":
@@ -219,13 +232,13 @@ class App(tk.Frame):
         else:
             last_cmd = cmd.split()[-1]
 
+        # Create a pattern to be match with glob
         match_pattern = last_cmd+'*'
 
         import glob
 
         cd_children = sorted(glob.glob(match_pattern))
         cd_children = [f+slash if os.path.isdir(f) else f for f in cd_children]
-
 
         import re
         import fnmatch
@@ -238,15 +251,16 @@ class App(tk.Frame):
 
         return_cmd = raw_cmd
 
+        # If common prefix path is not found this is our final command
+        # Concatenate with the previous "last command"
         if common_path != "":
-            self.TerminalScreen.delete(new_pos, END)
+            self.delete_cmd()
             return_cmd += common_path[len(last_cmd):]
-
-            # if len(cd_children) == 1:
-            #     return_cmd += ' '
 
             print(return_cmd, end='')
 
+        # Also print the files and folders that matched the pattern only if
+        # the results have more than one entry
         if len(cd_children) > 1:
             self.insert_new_line()
             print('\n'.join(cd_children))
@@ -269,39 +283,49 @@ class App(tk.Frame):
 
     def do_return(self, *args):
 
-        new_pos = self.get_pos_before_cmd()
+        cmd = self.get_cmd()
 
-        cmd = self.TerminalScreen.get(new_pos, "end-1c").strip()
-
+        # Empty command - pass
         if cmd == "":
             self.insert_new_line()
             self.print_basename()
             pass
-        elif cmd == "clear":
-            self.clear_screen()
-        elif "cd" in cmd.split()[0]:
-            path = ''.join(cmd.split()[1:])
-            path = os.path.abspath(path)
 
-            if os.path.exists(path):
-                os.chdir(path)
-                self.set_basename(path)
-                self.insert_new_line()
-                self.set_returnCode(0)
+        # Command not empty
+        else:
+
+            if cmd in self.commandHistory:
+                self.commandHistory.pop(self.commandIndex)
+
+            self.commandIndex = -1
+            self.commandHistory.insert(0, cmd)
+
+
+            if cmd == "clear":
+                self.clear_screen()
+            elif "cd" in cmd.split()[0]:
+                path = ''.join(cmd.split()[1:])
+                path = os.path.abspath(path)
+
+                if os.path.exists(path):
+                    os.chdir(path)
+                    self.set_basename(path)
+                    self.insert_new_line()
+                    self.set_returnCode(0)
+                else:
+                    self.insert_new_line()
+                    print("\"{}\": No such file or directory.".format(path))
+                    self.set_returnCode(1)
+
+                self.print_basename()
             else:
                 self.insert_new_line()
-                print("\"{}\": No such file or directory.".format(path))
-                self.set_returnCode(1)
 
-            self.print_basename()
-        else:
-            self.insert_new_line()
+                self.terminalThread = self.TerminalPrint(self, cmd)
+                self.terminalThread.start()
 
-            self.terminalThread = self.TerminalPrint(self, cmd)
-            self.terminalThread.start()
-
-            self.count = 0
-            self.monitor(self.terminalThread)
+                self.count = 0
+                self.monitor(self.terminalThread)
 
 
         return 'break'
@@ -322,14 +346,37 @@ class App(tk.Frame):
 
 
     def do_upArrow(self, *args):
+        """ Press UP arrow to get previous command in history """
+
+        if self.commandIndex < len(self.commandHistory) - 1:
+            self.commandIndex += 1
+
+            self.delete_cmd()
+
+            cmd = self.commandHistory[self.commandIndex]
+            print(cmd, end='')
+
         return 'break'
 
     def do_downArrow(self, *args):
+        """ Press Down arrow to get the next command in history """
+
+        if self.commandIndex >= 1:
+            self.commandIndex -= 1
+
+            self.delete_cmd()
+
+            cmd = self.commandHistory[self.commandIndex]
+            print(cmd, end='')
+
+        elif self.commandIndex == 0:
+            self.commandIndex = -1
+
+            self.delete_cmd()
+
         return 'break'
 
-
     def insert_new_line(self):
-
         self.TerminalScreen.insert(END, "\n")
 
     def monitor(self, progress_thread):
