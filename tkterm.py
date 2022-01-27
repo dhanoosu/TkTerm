@@ -38,6 +38,9 @@ class App(tk.Frame):
         # get the root after
         self.after = self.winfo_toplevel().after
 
+        ########################################################################
+        ## Terminal screen
+        ########################################################################
         self.frameTerminal = tk.Frame(self, borderwidth=0)
 
         self.TerminalScreen = tk.Text(self.frameTerminal, bg="#1F1E1E", fg="#E6E6E6", insertbackground="white", highlightthickness = 0)
@@ -49,6 +52,9 @@ class App(tk.Frame):
         scrollbar['command'] = self.TerminalScreen.yview
         scrollbar.pack(side=RIGHT, fill=Y)
 
+        ########################################################################
+        ## Status bar
+        ########################################################################
         self.frameStatusBar = tk.Frame(self, borderwidth=0)
 
         self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("fixed"), anchor=W, width=8)
@@ -72,9 +78,15 @@ class App(tk.Frame):
 
         self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
 
+        # Need to pack these last otherwise a glitch happens
+        # where scrollbar disappear when window resized
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
         self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True)
+
+        ########################################################################
+        ## Key bindings
+        ########################################################################
 
         self.TerminalScreen.bind("<Return>",              self.do_return)
         self.TerminalScreen.bind("<Up>",                  self.do_upArrow)
@@ -202,7 +214,7 @@ class App(tk.Frame):
 
     def get_cmd(self):
         """ Return command after the basename """
-    
+
         pos = self.get_pos_after_basename()
         return self.TerminalScreen.get(pos, "end-1c")
 
@@ -268,7 +280,6 @@ class App(tk.Frame):
             self.print_basename()
             print(return_cmd, end='')
 
-
         return "break"
 
     def do_clickRelease(self, *args):
@@ -300,8 +311,7 @@ class App(tk.Frame):
             self.commandIndex = -1
             self.commandHistory.insert(0, cmd)
 
-
-            if cmd == "clear":
+            if cmd == "clear" or cmd == "reset":
                 self.clear_screen()
             elif "cd" in cmd.split()[0]:
                 path = ''.join(cmd.split()[1:])
