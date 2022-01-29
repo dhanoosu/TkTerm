@@ -10,10 +10,10 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 ## Features
 - Compatible with Windows and Unix systems
 - Return Code (RC) of previous run commands is shown at the bottom status bar
-- Status message: IDLE or Working to show if current process is executing
-- Ctrl-C to kill current running process
+- **Ctrl-C** to kill current running process
 - UP and DOWN arrow to cycle between next and previous commands in history
-- Unix-like tab completion on files and directories
+- Unix-like **tab completion** on files and directories
+- Handles **multiline commands** using caret character `^` or `\`
 
 ## Requirements
 The Tkinter GUI library is built into Python, so no additional installation is needded.
@@ -27,7 +27,7 @@ $> python tkterm.py
 ```
 
 ## Integration with other Tkinter application
-The Terminal is implemented a `Frame` widget and can be easily be integrated to other Tkinter application by
+The Terminal is implemented as a `Frame` widget and can be easily be integrated to other Tkinter application by
 
 ```python
 import tkinter as tk
@@ -44,3 +44,21 @@ root.mainloop()
 
 ## Customisation options
 -TODO-
+
+## Multiline command
+Long lines of command can be broken up using a caret. A caret at the line end appends the next line command with the current command.
+In Windows the caret is `^`, and UNIX is `\`.
+
+For multiline command to be considered there must be ***no** trailing space after the caret*, for example:
+
+- `$> ping ^` is considered
+- `$> ping ^ ` is **not** considered
+
+
+
+```bash
+[tkterm]$> echo I ^
+> have apple ^
+> and banana
+I have apple and banana
+```
