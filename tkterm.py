@@ -25,7 +25,7 @@ class Redirect():
 
         # Work out if the current line is a command or output
         start_pos = get_last_line(self.TerminalScreen)
-        line = self.TerminalScreen.get(start_pos, self.TerminalScreen.index("insert"))
+        line = self.TerminalScreen.get(start_pos, END)
         isCmd = True if line.startswith(self.app.basename) else False
 
         self.TerminalScreen.insert("end", text)
@@ -45,7 +45,7 @@ class Redirect():
             self.TerminalScreen.tag_add("error", start_pos, end_pos)
 
         # Normal output
-        else:
+        elif not self.app.caretHandling:
             # Basename
             # does not add a newline, so start_pos does not need -1
             if text.startswith(self.app.basename):
@@ -56,7 +56,7 @@ class Redirect():
             # Normal output - could be command or its output
             # needs start_pos - 1
             elif not isCmd:
-                start_pos = get_last_line(self.TerminalScreen) - 1
+                # start_pos = get_last_line(self.TerminalScreen) - 1
                 end_pos = self.TerminalScreen.index("insert")
                 self.TerminalScreen.tag_add("output", start_pos, end_pos)
 
@@ -149,6 +149,11 @@ class App(tk.Frame):
             self.shellComboBox.set("csh")
 
 
+        # Caret handling and multiline commands
+        self.multilineCommand = ""
+        self.caretHandling = False
+        self.oldBasename = ""
+
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
 
@@ -175,6 +180,13 @@ class App(tk.Frame):
                 self.terminalThread.process.wait()
 
         else:
+
+            # Clear multiline commands
+            if self.multilineCommand != "":
+                self.set_basename(self.oldBasename, postfix="")
+                self.multilineCommand = ""
+                self.caretHandling = False
+
             # Clear commands
             self.insert_new_line()
             self.print_basename()
@@ -235,7 +247,7 @@ class App(tk.Frame):
                 self.process = None
                 self.returnCode = rc
 
-            self.outer_instance.set_basename(os.getcwd())
+            # self.outer_instance.set_basename(os.getcwd())
             self.outer_instance.print_basename()
 
     def clear_screen(self):
@@ -245,12 +257,12 @@ class App(tk.Frame):
     def print_basename(self):
         print(self.basename, end='')
 
-    def set_basename(self, text):
+    def set_basename(self, text, postfix=">>"):
 
         if text.endswith(" "):
             text = text.rstrip()
 
-        self.basename = text + ">> "
+        self.basename = text + postfix + " "
 
     def do_home(self, *args):
         """ Press HOME to return to the start position of command """
@@ -351,6 +363,10 @@ class App(tk.Frame):
         # return "break"
 
     def do_return(self, *args):
+        """ On pressing Return, execute the command """
+
+        # Caret character defers on Windows and Unix
+        CARET = "^" if (os.name == 'nt') else "\\"
 
         cmd = self.get_cmd()
 
@@ -360,14 +376,47 @@ class App(tk.Frame):
             self.print_basename()
             pass
 
-        # Command not empty
-        else:
+        # Multiline command
+        elif cmd.endswith(CARET):
 
+            # Add to command history
             if cmd in self.commandHistory:
                 self.commandHistory.pop(self.commandIndex)
 
             self.commandIndex = -1
             self.commandHistory.insert(0, cmd)
+
+            # Construct multiline command
+            self.multilineCommand += cmd.rstrip(CARET)
+
+            # Store old basename only once at the start of caret handling
+            if not self.caretHandling:
+                self.oldBasename = self.basename
+                self.caretHandling = True
+
+            # Update basename and store command as multiline command
+            self.set_basename(">", postfix="")
+
+            self.insert_new_line()
+            self.print_basename()
+
+        # Valid command
+        else:
+
+            # Add to command history
+            if cmd in self.commandHistory:
+                self.commandHistory.pop(self.commandIndex)
+
+            self.commandIndex = -1
+            self.commandHistory.insert(0, cmd)
+
+            # Merge all multiline command and update basename to whatever
+            # was previously
+            if self.multilineCommand != "":
+                self.set_basename(self.oldBasename, postfix="")
+                cmd = self.multilineCommand + cmd
+                self.multilineCommand = ""
+                self.caretHandling = False
 
             if cmd == "clear" or cmd == "reset":
                 self.clear_screen()
