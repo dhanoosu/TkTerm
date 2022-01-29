@@ -16,15 +16,51 @@ def get_last_line(widget):
 class Redirect():
     """ Redirect stdout and stderr to be written to Text widget """
 
-    def __init__(self, widget, autoscroll=True):
-        self.widget = widget
+    def __init__(self, widget, autoscroll=True, stream="stdout"):
+        self.app = widget
+        self.TerminalScreen = widget.TerminalScreen
         self.autoscroll = autoscroll
+        self.stream = stream
     def write(self, text):
 
-        self.widget.insert("end", text)
+        # Work out if the current line is a command or output
+        start_pos = get_last_line(self.TerminalScreen)
+        line = self.TerminalScreen.get(start_pos, self.TerminalScreen.index("insert"))
+        isCmd = True if line.startswith(self.app.basename) else False
+
+        self.TerminalScreen.insert("end", text)
 
         if self.autoscroll:
-            self.widget.see("end")
+            self.TerminalScreen.see("end")
+
+        ########################################################################
+        ## Adding color tags
+        ########################################################################
+
+        # Error output
+        # would have added a newline, so start_pos needs -1
+        if self.stream == "stderr":
+            start_pos = get_last_line(self.TerminalScreen) - 1
+            end_pos = self.TerminalScreen.index("insert")
+            self.TerminalScreen.tag_add("error", start_pos, end_pos)
+
+        # Normal output
+        else:
+            # Basename
+            # does not add a newline, so start_pos does not need -1
+            if text.startswith(self.app.basename):
+                start_pos = get_last_line(self.TerminalScreen)
+                end_pos = str(start_pos).split('.')[0] + '.' + str(len(self.app.basename))
+                self.TerminalScreen.tag_add("basename", start_pos, end_pos)
+
+            # Normal output - could be command or its output
+            # needs start_pos - 1
+            elif not isCmd:
+                start_pos = get_last_line(self.TerminalScreen) - 1
+                end_pos = self.TerminalScreen.index("insert")
+                self.TerminalScreen.tag_add("output", start_pos, end_pos)
+
+
 
 class App(tk.Frame):
     def __init__(self, parent, **kwargs):
@@ -35,6 +71,8 @@ class App(tk.Frame):
         self.commandIndex = -1
         self.commandHistory = []
 
+
+
         # get the root after
         self.after = self.winfo_toplevel().after
 
@@ -43,7 +81,7 @@ class App(tk.Frame):
         ########################################################################
         self.frameTerminal = tk.Frame(self, borderwidth=0)
 
-        self.TerminalScreen = tk.Text(self.frameTerminal, bg="#1F1E1E", fg="#E6E6E6", insertbackground="white", highlightthickness = 0)
+        self.TerminalScreen = tk.Text(self.frameTerminal, bg=self.TerminalColors["bg"], fg=self.TerminalColors["fg"], insertbackground="white", highlightthickness = 0)
         self.TerminalScreen['blockcursor'] = True
 
         scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
@@ -57,12 +95,12 @@ class App(tk.Frame):
         ########################################################################
         self.frameStatusBar = tk.Frame(self, borderwidth=0)
 
-        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("fixed"), anchor=W, width=8)
+        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("arial", 9), anchor=W, width=8)
         self.returnCodeLabel.pack(side=LEFT)
 
         self.statusText = StringVar()
         self.statusText.set("Status: IDLE")
-        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("fixed"))
+        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("arial", 9))
         self.statusLabel.pack(side=LEFT)
 
 
@@ -120,12 +158,20 @@ class App(tk.Frame):
 
     def do_cancel(self, *args):
 
+        import signal
+
         # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
             if (os.name == 'nt'):
                 subprocess.Popen("TASKKILL /F /PID {pid} /T".format(pid=self.terminalThread.process.pid))
             else:
                 os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
+
+                # os.killpg(os.getpgid(self.terminalThread.process.pid), signal.SIGTERM)
+
+                self.terminalThread.process.kill()
+                self.terminalThread.process.terminate()
+
                 self.terminalThread.process.wait()
 
         else:
@@ -156,7 +202,7 @@ class App(tk.Frame):
             process_options = {
                 "shell"                 : True,
                 "stdout"                : subprocess.PIPE,
-                "stderr"                : subprocess.STDOUT,
+                "stderr"                : subprocess.PIPE,
                 "universal_newlines"    : True,
                 "cwd"                   : os.getcwd()
             }
@@ -167,17 +213,25 @@ class App(tk.Frame):
 
             if self.cmd is not "":
 
-                self.process =  subprocess.Popen(self.cmd, **process_options)
+                with subprocess.Popen(self.cmd, **process_options) as self.process:
+                    for line in self.process.stdout:
+                        print(line, end='')
+                    for line in self.process.stderr:
+                        print(line, file=sys.stderr, end='')
 
-                while True:
-                    output = self.process.stdout.readline()
-                    rc = self.process.poll()
-                    if output == '' and rc is not None:
-                        break
 
-                    if output:
-                        print(output, end='')
+                # self.process =  subprocess.Popen(self.cmd, **process_options)
+                # while True:
+                #     output = self.process.stdout.readline()
+                #     rc = self.process.poll()
+                #     if output == '' and rc is not None:
+                #         break
 
+                #     if output:
+                #         print(output, end='')
+
+
+                rc = self.process.poll()
                 self.process = None
                 self.returnCode = rc
 
@@ -192,6 +246,10 @@ class App(tk.Frame):
         print(self.basename, end='')
 
     def set_basename(self, text):
+
+        if text.endswith(" "):
+            text = text.rstrip()
+
         self.basename = text + ">> "
 
     def do_home(self, *args):
@@ -341,6 +399,7 @@ class App(tk.Frame):
         return 'break'
 
     def do_backspace(self, *args):
+        """ Delete a character until the basename """
 
         index = self.TerminalScreen.index("insert-1c")
 
@@ -348,6 +407,7 @@ class App(tk.Frame):
             return "break"
 
     def do_leftArrow(self, *args):
+        """ Moves cursor to the left until it reaches the basename """
 
         index = self.TerminalScreen.index("insert-1c")
 
@@ -387,9 +447,11 @@ class App(tk.Frame):
         return 'break'
 
     def insert_new_line(self):
+        """ Insert a newline in Terminal """
         self.TerminalScreen.insert(END, "\n")
 
     def monitor(self, progress_thread):
+        """ Monitor running process and update RC and Status on status bar """
 
         seq1 = ["⢿", "⣻", "⣽", "⣾", "⣷", "⣯", "⣟", "⡿"]
         seq2 = [".", "..", "...", "....", ".....", "....", "...", ".."]
@@ -408,6 +470,7 @@ class App(tk.Frame):
             self.terminalThread = None
 
     def set_returnCode(self, rc):
+        """ Set return code on status bar """
 
         if(rc != 0):
             self.returnCodeLabel.configure(bg="red")
@@ -432,14 +495,26 @@ class Terminal(App):
         old_stdout = sys.stdout
         old_stderr = sys.stderr
 
+        self.TerminalColors = {
+            "fg" : "#E6E6E6",
+            "bg" : "#1F1E1E"
+        }
+
+        self.TerminalColors["fg"] = "green"
+
         super().__init__(parent, *args, **kwargs)
         parent.bind("<Configure>", self.on_resize)
 
-        sys.stdout = Redirect(self.TerminalScreen)
-        sys.stderr = Redirect(self.TerminalScreen)
+        sys.stdout = Redirect(self, stream="stdout")
+        sys.stderr = Redirect(self, stream="stderr")
 
-        self.basename = os.getcwd() + ">> "
+        self.set_basename(os.getcwd())
         self.print_basename()
+
+        self.TerminalScreen.tag_config("basename", foreground="red")
+        self.TerminalScreen.tag_config("error", foreground="red")
+        self.TerminalScreen.tag_config("output", foreground="#E6E6E6")
+
 
     def on_resize(self, *args):
         """Auto scroll to bottom when resize event happens"""
