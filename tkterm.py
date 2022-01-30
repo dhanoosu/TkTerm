@@ -133,6 +133,7 @@ class App(tk.Frame):
         self.TerminalScreen.bind("<Left>",                self.do_leftArrow)
         self.TerminalScreen.bind('<Button-1>',            self.do_click)
         self.TerminalScreen.bind('<ButtonRelease-1>',     self.do_clickRelease)
+        self.TerminalScreen.bind('<ButtonRelease-2>',     self.do_middleClickRelease)
         self.TerminalScreen.bind('<Tab>',                 self.do_tab)
         self.TerminalScreen.bind('<Home>',                self.do_home)
         self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
@@ -356,6 +357,13 @@ class App(tk.Frame):
 
         self.TerminalScreen.mark_set("insert", self.index)
 
+    def do_middleClickRelease(self, *args):
+        selected = self.TerminalScreen.selection_get()
+        current_pos = self.TerminalScreen.index(INSERT)
+        self.TerminalScreen.insert(current_pos, selected)
+
+        return "break"
+
     def do_click(self, *args):
 
         self.index = self.TerminalScreen.index("insert")
@@ -498,6 +506,7 @@ class App(tk.Frame):
     def insert_new_line(self):
         """ Insert a newline in Terminal """
         self.TerminalScreen.insert(END, "\n")
+        self.TerminalScreen.mark_set("insert", END)
 
     def monitor(self, progress_thread):
         """ Monitor running process and update RC and Status on status bar """
