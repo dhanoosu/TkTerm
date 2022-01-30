@@ -233,10 +233,12 @@ class App(tk.Frame):
                 "stdout"                : subprocess.PIPE,
                 "stderr"                : subprocess.PIPE,
                 "universal_newlines"    : True,
-                "cwd"                   : os.getcwd(),
-                # Ignore utf-8 decode error which sometimes happens on early terminating
-                "errors"                : "ignore"
+                "cwd"                   : os.getcwd()
             }
+
+            # Ignore utf-8 decode error which sometimes happens on early terminating
+            if os.name != "nt":
+                process_options["errors"] = "ignore"
 
             # Modify shell executable based on selected shell combobox variable
             shellSelected = self.outer_instance.shellComboBox.get()
