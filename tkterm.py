@@ -150,6 +150,8 @@ class App(tk.Frame):
             self.shellComboBox.set("csh")
 
 
+        self.processTerminated = False;
+
         # Caret handling and multiline commands
         self.multilineCommand = ""
         self.caretHandling = False
@@ -169,16 +171,30 @@ class App(tk.Frame):
         # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
             if (os.name == 'nt'):
-                subprocess.Popen("TASKKILL /F /PID {pid} /T".format(pid=self.terminalThread.process.pid))
-            else:
-                os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
+                process = subprocess.Popen(
+                    "TASKKILL /F /PID {} /T".format(self.terminalThread.process.pid),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
+                )
+                for line in process.stdout:
+                    print(line, end='')
+                for line in process.stderr:
+                    print(line, file=sys.stderr, end='')
 
-                # os.killpg(os.getpgid(self.terminalThread.process.pid), signal.SIGTERM)
+            else:
+                self.processTerminated = True
+
+                os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
 
                 self.terminalThread.process.kill()
                 self.terminalThread.process.terminate()
+                # os.kill(self.terminalThread.process.pid, signal.SIGTERM)
 
                 self.terminalThread.process.wait()
+
+                print("^C")
+                self.processTerminated = False
 
         else:
 
@@ -217,7 +233,9 @@ class App(tk.Frame):
                 "stdout"                : subprocess.PIPE,
                 "stderr"                : subprocess.PIPE,
                 "universal_newlines"    : True,
-                "cwd"                   : os.getcwd()
+                "cwd"                   : os.getcwd(),
+                # Ignore utf-8 decode error which sometimes happens on early terminating
+                "errors"                : "ignore"
             }
 
             # Modify shell executable based on selected shell combobox variable
@@ -227,28 +245,25 @@ class App(tk.Frame):
             if self.cmd is not "":
 
                 with subprocess.Popen(self.cmd, **process_options) as self.process:
+
+                    # Guarding - stop printout when cancel event happens
+                    if self.outer_instance.processTerminated:
+                        return
+
                     for line in self.process.stdout:
                         print(line, end='')
                     for line in self.process.stderr:
                         print(line, file=sys.stderr, end='')
 
-
-                # self.process =  subprocess.Popen(self.cmd, **process_options)
-                # while True:
-                #     output = self.process.stdout.readline()
-                #     rc = self.process.poll()
-                #     if output == '' and rc is not None:
-                #         break
-
-                #     if output:
-                #         print(output, end='')
-
-
                 rc = self.process.poll()
                 self.process = None
                 self.returnCode = rc
 
-            # self.outer_instance.set_basename(os.getcwd())
+            # Always print basename on a newline
+            insert_pos = self.outer_instance.TerminalScreen.index("insert")
+            if insert_pos.split('.')[1] != '0':
+                self.outer_instance.insert_new_line()
+
             self.outer_instance.print_basename()
 
     def clear_screen(self):
