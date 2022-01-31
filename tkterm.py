@@ -183,12 +183,13 @@ class App(tk.Frame):
 
         import signal
 
-        # Signals TerminalPrint to immediately stops any printout
-        self.processTerminated = True
-        print("^C")
-
         # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
+
+            # Signals TerminalPrint to immediately stops any printout
+            self.processTerminated = True
+            print("^C")
+
             if (os.name == 'nt'):
                 process = subprocess.Popen(
                     "TASKKILL /F /PID {} /T".format(self.terminalThread.process.pid),
@@ -390,9 +391,16 @@ class App(tk.Frame):
 
     def do_clickRelease(self, *args):
 
+        if self.terminalThread is not None:
+            return "break"
+
         self.TerminalScreen.mark_set("insert", self.index)
 
     def do_middleClickRelease(self, *args):
+
+        if self.terminalThread is not None:
+            return "break"
+
         selected = self.TerminalScreen.selection_get()
         current_pos = self.TerminalScreen.index(INSERT)
         self.TerminalScreen.insert(current_pos, selected)
@@ -400,6 +408,9 @@ class App(tk.Frame):
         return "break"
 
     def do_click(self, *args):
+
+        if self.terminalThread is not None:
+            return "break"
 
         self.index = self.TerminalScreen.index("insert")
         self.TerminalScreen.mark_set("insert", self.index)
