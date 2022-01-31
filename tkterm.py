@@ -24,6 +24,11 @@ class Redirect():
         self.stream = stream
     def write(self, text):
 
+        # Keep line limit for Terminal to 5000 lines
+        limit_diff = int(get_last_line(self.TerminalScreen)) - 5000
+        for i in range(limit_diff):
+            self.TerminalScreen.delete("1.0", "2.0")
+
         # Work out if the current line is a command or output
         start_pos = get_last_line(self.TerminalScreen)
         line = self.TerminalScreen.get(start_pos, END)
@@ -84,7 +89,14 @@ class App(tk.Frame):
         ########################################################################
         self.frameTerminal = tk.Frame(self, borderwidth=0)
 
-        self.TerminalScreen = tk.Text(self.frameTerminal, bg=self.TerminalColors["bg"], fg=self.TerminalColors["fg"], insertbackground="white", highlightthickness = 0)
+        self.TerminalScreen = tk.Text(
+            self.frameTerminal,
+            bg=self.TerminalColors["bg"],
+            fg=self.TerminalColors["fg"],
+            insertbackground="white",
+            highlightthickness=0,
+            undo=False
+        )
         self.TerminalScreen['blockcursor'] = True
 
         scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
