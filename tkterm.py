@@ -5,6 +5,7 @@ from tkinter import ttk
 import threading
 import os
 import subprocess
+import time
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
@@ -60,6 +61,8 @@ class Redirect():
                 end_pos = self.TerminalScreen.index("insert")
                 self.TerminalScreen.tag_add("output", start_pos, end_pos)
 
+        # Gives slightly smoother print out and reduces CPU stress
+        time.sleep(0.0001)
 
 
 class App(tk.Frame):
@@ -168,6 +171,10 @@ class App(tk.Frame):
 
         import signal
 
+        # Signals TerminalPrint to immediately stops any printout
+        self.processTerminated = True
+        print("^C")
+
         # Kill current running process if there is any
         if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
             if (os.name == 'nt'):
@@ -183,7 +190,6 @@ class App(tk.Frame):
                     print(line, file=sys.stderr, end='')
 
             else:
-                self.processTerminated = True
 
                 os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
 
@@ -193,8 +199,6 @@ class App(tk.Frame):
 
                 self.terminalThread.process.wait()
 
-                print("^C")
-                self.processTerminated = False
 
         else:
 
@@ -208,11 +212,11 @@ class App(tk.Frame):
             self.insert_new_line()
             self.print_basename()
 
-
     class TerminalPrint(threading.Thread):
 
         def __init__(self, outer_instance, cmd):
             threading.Thread.__init__(self)
+            # super().__init__(parent, *args, **kwargs)
             self.daemon = True
             self.cmd = cmd
             self.returnCode = 0
@@ -248,17 +252,18 @@ class App(tk.Frame):
 
                 with subprocess.Popen(self.cmd, **process_options) as self.process:
 
-                    # Guarding - stop printout when cancel event happens
-                    if self.outer_instance.processTerminated:
-                        return
-
                     for line in self.process.stdout:
+
+                        if self.outer_instance.processTerminated:
+                            break
+
                         print(line, end='')
+
                     for line in self.process.stderr:
                         print(line, file=sys.stderr, end='')
 
+
                 rc = self.process.poll()
-                self.process = None
                 self.returnCode = rc
 
             # Always print basename on a newline
@@ -267,6 +272,7 @@ class App(tk.Frame):
                 self.outer_instance.insert_new_line()
 
             self.outer_instance.print_basename()
+            self.outer_instance.processTerminated = False
 
     def clear_screen(self):
         self.TerminalScreen.delete("1.0", END)
