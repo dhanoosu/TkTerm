@@ -99,11 +99,11 @@ class App(tk.Frame):
         )
         self.TerminalScreen['blockcursor'] = True
 
-        scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
+        self.scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
 
-        self.TerminalScreen['yscrollcommand'] = scrollbar.set
-        scrollbar['command'] = self.TerminalScreen.yview
-        scrollbar.pack(side=RIGHT, fill=Y)
+        self.TerminalScreen['yscrollcommand'] = self.scrollbar.set
+        self.scrollbar['command'] = self.TerminalScreen.yview
+        self.scrollbar.pack(side=RIGHT, fill=Y)
 
         ########################################################################
         ## Status bar
@@ -620,9 +620,12 @@ class Terminal(App):
         self.TerminalScreen.tag_config("output", foreground="#E6E6E6")
 
 
+
     def on_resize(self, *args):
         """Auto scroll to bottom when resize event happens"""
-        self.TerminalScreen.see(END)
+
+        if self.scrollbar.get()[1] >= 1:
+            self.TerminalScreen.see(END)
 
 if __name__ == "__main__":
 
