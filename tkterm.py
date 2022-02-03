@@ -140,18 +140,16 @@ class App(tk.Frame):
         ########################################################################
         ## Key bindings
         ########################################################################
-
-        self.TerminalScreen.bind("<Return>",              self.do_return)
-        self.TerminalScreen.bind("<Up>",                  self.do_upArrow)
-        self.TerminalScreen.bind("<Down>",                self.do_downArrow)
-        self.TerminalScreen.bind("<BackSpace>",           self.do_backspace)
-        self.TerminalScreen.bind("<Left>",                self.do_leftArrow)
-        self.TerminalScreen.bind('<Button-1>',            self.do_click)
-        self.TerminalScreen.bind('<ButtonRelease-1>',     self.do_clickRelease)
-        self.TerminalScreen.bind('<ButtonRelease-2>',     self.do_middleClickRelease)
-        self.TerminalScreen.bind('<Tab>',                 self.do_tab)
-        self.TerminalScreen.bind('<Home>',                self.do_home)
         self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
+        self.bind_keys()
+
+
+        import string
+
+        for i in list(string.ascii_lowercase + string.ascii_uppercase + string.digits):
+            self.TerminalScreen.bind(i, self.do_keyPress)
+
+        self.pendingKeys = ""
 
         self.index = None
         self.count = 0;
@@ -174,6 +172,45 @@ class App(tk.Frame):
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
+
+
+
+    def bind_keys(self):
+        self.TerminalScreen.bind("<Return>",            self.do_return)
+        self.TerminalScreen.bind("<Up>",                self.do_upArrow)
+        self.TerminalScreen.bind("<Down>",              self.do_downArrow)
+        self.TerminalScreen.bind("<BackSpace>",         self.do_backspace)
+        self.TerminalScreen.bind("<Left>",              self.do_leftArrow)
+        self.TerminalScreen.bind('<Button-1>',          self.do_click)
+        self.TerminalScreen.bind('<ButtonRelease-1>',   self.do_clickRelease)
+        self.TerminalScreen.bind('<ButtonRelease-2>',   self.do_middleClickRelease)
+        self.TerminalScreen.bind('<Tab>',               self.do_tab)
+        self.TerminalScreen.bind('<Home>',              self.do_home)
+
+    def unbind_keys(self):
+        self.TerminalScreen.bind("<Return>",            lambda event: "break")
+        self.TerminalScreen.bind("<Up>",                lambda event: "break")
+        self.TerminalScreen.bind("<Down>",              lambda event: "break")
+        self.TerminalScreen.bind("<BackSpace>",         lambda event: "break")
+        self.TerminalScreen.bind("<Left>",              lambda event: "break")
+        self.TerminalScreen.bind('<Button-1>',          lambda event: "break")
+        self.TerminalScreen.bind('<ButtonRelease-1>',   lambda event: "break")
+        self.TerminalScreen.bind('<ButtonRelease-2>',   lambda event: "break")
+        self.TerminalScreen.bind('<Tab>',               lambda event: "break")
+        self.TerminalScreen.bind('<Home>',              lambda event: "break")
+
+
+    def do_keyPress(self, key):
+
+        value = key.char
+
+        if self.terminalThread:
+            self.pendingKeys += value
+        else:
+            self.pendingKeys = ""
+            print(value, end='')
+
+        return "break"
 
     def update_shell(self, *args):
         self.shellComboBox.selection_clear()
@@ -293,6 +330,8 @@ class App(tk.Frame):
 
     def print_basename(self):
         print(self.basename, end='')
+        print(self.pendingKeys, end='')
+        self.pendingKeys = ""
 
     def set_basename(self, text, postfix=">>"):
 
@@ -562,6 +601,8 @@ class App(tk.Frame):
 
         if progress_thread.is_alive():
 
+            self.unbind_keys()
+
             string = "{} Status: Working {}".format(seq1[self.count], seq2[self.count])
             self.count = (self.count + 1) % 8
             self.statusText.set(string)
@@ -572,6 +613,8 @@ class App(tk.Frame):
             self.set_returnCode(progress_thread.returnCode)
             self.statusText.set("Status: IDLE")
             self.terminalThread = None
+
+            self.bind_keys()
 
     def set_returnCode(self, rc):
         """ Set return code on status bar """
@@ -585,6 +628,8 @@ class App(tk.Frame):
 
     def run_command(self, cmd):
         """ Print and execute command on terminal """
+
+        while self.terminalThread: pass
 
         print(cmd, end='')
         self.do_return()
