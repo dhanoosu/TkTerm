@@ -143,15 +143,12 @@ class App(tk.Frame):
         self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
         self.bind_keys()
 
-
-        import string
-
-        for i in list(string.ascii_lowercase + string.ascii_uppercase + string.digits):
-            self.TerminalScreen.bind(i, self.do_keyPress)
+        # Bind all other key press
+        self.TerminalScreen.bind("<KeyPress>", self.do_keyPress)
 
         self.pendingKeys = ""
 
-        self.index = None
+        self.insertionIndex = None
         self.count = 0;
 
         self.terminalThread = None
@@ -180,35 +177,58 @@ class App(tk.Frame):
         self.TerminalScreen.bind("<Up>",                self.do_upArrow)
         self.TerminalScreen.bind("<Down>",              self.do_downArrow)
         self.TerminalScreen.bind("<BackSpace>",         self.do_backspace)
+        self.TerminalScreen.bind("<Delete>",            lambda event: "")
+        self.TerminalScreen.bind("<End>",               lambda event: "")
         self.TerminalScreen.bind("<Left>",              self.do_leftArrow)
-        self.TerminalScreen.bind('<Button-1>',          self.do_click)
-        self.TerminalScreen.bind('<ButtonRelease-1>',   self.do_clickRelease)
-        self.TerminalScreen.bind('<ButtonRelease-2>',   self.do_middleClickRelease)
-        self.TerminalScreen.bind('<Tab>',               self.do_tab)
-        self.TerminalScreen.bind('<Home>',              self.do_home)
+        self.TerminalScreen.bind("<Right>",             lambda event: "")
+        self.TerminalScreen.bind("<Button-1>",          self.do_click)
+        self.TerminalScreen.bind("<ButtonRelease-1>",   self.do_clickRelease)
+        self.TerminalScreen.bind("<ButtonRelease-2>",   self.do_middleClickRelease)
+        self.TerminalScreen.bind("<Tab>",               self.do_tab)
+        self.TerminalScreen.bind("<Home>",              self.do_home)
+        self.TerminalScreen.unbind("<B1-Motion>")
 
     def unbind_keys(self):
         self.TerminalScreen.bind("<Return>",            lambda event: "break")
         self.TerminalScreen.bind("<Up>",                lambda event: "break")
         self.TerminalScreen.bind("<Down>",              lambda event: "break")
         self.TerminalScreen.bind("<BackSpace>",         lambda event: "break")
+        self.TerminalScreen.bind("<Delete>",            lambda event: "break")
+        self.TerminalScreen.bind("<End>",               lambda event: "break")
         self.TerminalScreen.bind("<Left>",              lambda event: "break")
-        self.TerminalScreen.bind('<Button-1>',          lambda event: "break")
-        self.TerminalScreen.bind('<ButtonRelease-1>',   lambda event: "break")
-        self.TerminalScreen.bind('<ButtonRelease-2>',   lambda event: "break")
-        self.TerminalScreen.bind('<Tab>',               lambda event: "break")
-        self.TerminalScreen.bind('<Home>',              lambda event: "break")
+        self.TerminalScreen.bind("<Right>",             lambda event: "break")
+        self.TerminalScreen.bind("<Button-1>",          lambda event: "break")
+        self.TerminalScreen.bind("<ButtonRelease-1>",   lambda event: "break")
+        self.TerminalScreen.bind("<ButtonRelease-2>",   lambda event: "break")
+        self.TerminalScreen.bind("<Tab>",               lambda event: "break")
+        self.TerminalScreen.bind("<Home>",              lambda event: "break")
+        self.TerminalScreen.bind("<B1-Motion>",         lambda event: "break")
 
 
-    def do_keyPress(self, key):
+    def do_keyPress(self, event):
 
-        value = key.char
+        # On key press, always scroll to bottom
+        self.TerminalScreen.see(END)
+
+        # The obvious information
+        c = event.keysym
+        s = event.state
+
+        # Manual way to get the modifiers
+        ctrl  = (s & 0x4) != 0
+        alt   = (s & 0x8) != 0 or (s & 0x80) != 0
+        shift = (s & 0x1) != 0
+
+        if ctrl:
+            return "break"
+
+        char = event.char
 
         if self.terminalThread:
-            self.pendingKeys += value
+            self.pendingKeys += char
         else:
             self.pendingKeys = ""
-            print(value, end='')
+            self.TerminalScreen.insert("insert", char)
 
         return "break"
 
@@ -249,7 +269,6 @@ class App(tk.Frame):
 
                 self.terminalThread.process.wait()
 
-
         else:
 
             # Clear multiline commands
@@ -276,7 +295,6 @@ class App(tk.Frame):
             # Attach outer class instance
             self.outer_instance = outer_instance
             self.shellMapping = outer_instance.shellMapping
-
 
         def run(self):
 
@@ -325,10 +343,12 @@ class App(tk.Frame):
             self.outer_instance.processTerminated = False
 
     def clear_screen(self):
+        """ Clear screen and print basename """
         self.TerminalScreen.delete("1.0", END)
         self.print_basename()
 
     def print_basename(self):
+        """ Print basename on Terminal """
         print(self.basename, end='')
         print(self.pendingKeys, end='')
         self.pendingKeys = ""
@@ -430,17 +450,15 @@ class App(tk.Frame):
 
     def do_clickRelease(self, *args):
 
-        if self.terminalThread is not None:
-            return "break"
-
-        self.TerminalScreen.mark_set("insert", self.index)
+        self.TerminalScreen.mark_set("insert", self.insertionIndex)
 
     def do_middleClickRelease(self, *args):
 
-        if self.terminalThread is not None:
-            return "break"
+        try:
+            selected = self.TerminalScreen.selection_get()
+        except Exception as e:
+            selected = ""
 
-        selected = self.TerminalScreen.selection_get()
         current_pos = self.TerminalScreen.index(INSERT)
         self.TerminalScreen.insert(current_pos, selected)
 
@@ -448,12 +466,10 @@ class App(tk.Frame):
 
     def do_click(self, *args):
 
-        if self.terminalThread is not None:
-            return "break"
-
-        self.index = self.TerminalScreen.index("insert")
-        self.TerminalScreen.mark_set("insert", self.index)
+        self.insertionIndex = self.TerminalScreen.index("insert")
+        # self.TerminalScreen.mark_set("insert", self.insertionIndex)
         # return "break"
+        pass
 
     def do_return(self, *args):
         """ On pressing Return, execute the command """
@@ -545,8 +561,10 @@ class App(tk.Frame):
 
         index = self.TerminalScreen.index("insert-1c")
 
-        if int(str(index).split('.')[1]) < len(self.basename):
-            return "break"
+        if int(str(index).split('.')[1]) >= len(self.basename):
+            self.TerminalScreen.delete(index)
+
+        return "break"
 
     def do_leftArrow(self, *args):
         """ Moves cursor to the left until it reaches the basename """
@@ -555,7 +573,6 @@ class App(tk.Frame):
 
         if int(str(index).split('.')[1]) < len(self.basename):
             return "break"
-
 
     def do_upArrow(self, *args):
         """ Press UP arrow to get previous command in history """
