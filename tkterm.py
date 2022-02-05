@@ -87,7 +87,7 @@ class App(tk.Frame):
         ########################################################################
         ## Terminal screen
         ########################################################################
-        self.frameTerminal = tk.Frame(self, borderwidth=0)
+        self.frameTerminal = tk.Frame(self, borderwidth=0, relief=FLAT, bg=self.TerminalColors["bg"])
 
         self.TerminalScreen = tk.Text(
             self.frameTerminal,
@@ -95,6 +95,8 @@ class App(tk.Frame):
             fg=self.TerminalColors["fg"],
             insertbackground="white",
             highlightthickness=0,
+            borderwidth=0,
+            insertwidth=0,
             undo=False
         )
         self.TerminalScreen['blockcursor'] = True
@@ -108,14 +110,14 @@ class App(tk.Frame):
         ########################################################################
         ## Status bar
         ########################################################################
-        self.frameStatusBar = tk.Frame(self, borderwidth=0)
+        self.frameStatusBar = ttk.Frame(self)
 
-        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("arial", 9), anchor=W, width=8)
+        self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("Helvetica", 8), anchor=W, width=8)
         self.returnCodeLabel.pack(side=LEFT)
 
         self.statusText = StringVar()
         self.statusText.set("Status: IDLE")
-        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("arial", 9))
+        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("Helvetica", 8), bg="#21252B", fg="#9DA5B4", relief=FLAT)
         self.statusLabel.pack(side=LEFT)
 
 
@@ -125,22 +127,69 @@ class App(tk.Frame):
             "windows" : None
         }
 
-        self.shellComboBox = ttk.Combobox(self.frameStatusBar, state="readonly")
-        self.shellComboBox.pack(side=RIGHT)
+        ########################################################################
+        ## Style configure for ttk widgets
+        ########################################################################
+        style_combobox = {
+            'fieldbackground'       : "#21252B",    # current field background
+            'background'            : '#21252B',    # arrow box background
+            'foreground'            : "#9DA5B4",    # current field foreground
+            "relief"                : FLAT,
+            "borderwidth"           : 0,
+            "highlightthickness"    : 0
+        }
+
+        self.style = ttk.Style(self)
+        self.style.theme_use('default')
+        self.style.configure("TCombobox", **style_combobox)
+        self.style.configure("TScrollbar",
+            troughcolor=self.TerminalColors["bg"],
+            background="#3A3E48",
+            borderwidth=0,
+            relief=FLAT,
+            arrowcolor=self.TerminalColors["bg"],
+
+            # hack to make arrow invisible
+            arrowsize=-10
+        )
+
+        self.style.map('TCombobox', background=[('hover', "#2F333D")])
+        self.style.map('TCombobox', fieldbackground=[('hover', "#2F333D")])
+        self.style.map('TCombobox', arrowcolor=[('readonly', '#21252B')])
+
+        self.style.map('TScrollbar', background=[('active', "#9DA5B4"), ('pressed', "#9DA5B4"), ('disabled', self.TerminalColors["bg"])])
+        self.style.map('TScrollbar', arrowcolor=[('disabled', self.TerminalColors["bg"]), ('active', self.TerminalColors["bg"])])
+
+        self.style.configure("TFrame", background="#21252B", borderwidth=0, relief=FLAT)
+
+
+        # following are style option for the drop down combobox listbox
+        self.option_add('*TCombobox*Listbox*Background', '#21252B')
+        self.option_add('*TCombobox*Listbox*Foreground', "#9DA5B4")
+        self.option_add('*TCombobox*Listbox.font', ("Helvetica", 8))
+
+
+        self.shellComboBox = ttk.Combobox(self.frameStatusBar, state="readonly", width=8, font=("Helvetica", 8))
+        self.shellComboBox.pack(side=RIGHT, padx=0)
         self.shellComboBox['values'] = list(self.shellMapping)
 
         self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
+
+        ########################################################################
+        ## Packing
+        ########################################################################
 
         # Need to pack these last otherwise a glitch happens
         # where scrollbar disappear when window resized
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
-        self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True)
+        self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True, padx=(4,0), pady=0)
 
         ########################################################################
         ## Key bindings
         ########################################################################
         self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
+        self.TerminalScreen.bind('<MouseWheel>', lambda event: self.rollWheel(event))
         self.bind_keys()
 
         # Bind all other key press
@@ -148,7 +197,7 @@ class App(tk.Frame):
 
         self.pendingKeys = ""
 
-        self.insertionIndex = None
+        self.insertionIndex = self.TerminalScreen.index("end")
         self.count = 0;
 
         self.terminalThread = None
@@ -204,6 +253,14 @@ class App(tk.Frame):
         self.TerminalScreen.bind("<Home>",              lambda event: "break")
         self.TerminalScreen.bind("<B1-Motion>",         lambda event: "break")
 
+
+    def rollWheel(self, event):
+        direction = 0
+        if event.num == 5 or event.delta == -120:
+            direction = 1
+        if event.num == 4 or event.delta == 120:
+            direction = -1
+        event.widget.yview_scroll(direction, UNITS)
 
     def do_keyPress(self, event):
 
@@ -663,7 +720,7 @@ class Terminal(App):
 
         self.TerminalColors = {
             "fg" : "#E6E6E6",
-            "bg" : "#1F1E1E"
+            "bg" : "#282C34"
         }
 
         self.TerminalColors["fg"] = "green"
