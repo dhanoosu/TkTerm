@@ -101,11 +101,21 @@ class App(tk.Frame):
         )
         self.TerminalScreen['blockcursor'] = True
 
-        self.scrollbar = ttk.Scrollbar(self.frameTerminal, orient="vertical")
+        self.frameScrollbar = Frame(self.frameTerminal, borderwidth=0, width=25, bg=self.TerminalColors["bg"])
+        # tell frame not to let its children control its size
+        self.frameScrollbar.pack_propagate(0)
+
+        self.scrollbar = ttk.Scrollbar(self.frameScrollbar, orient="vertical")
+        self.scrollbar.pack(anchor=E, side=RIGHT, fill=Y, expand=True, padx=(0,3))
 
         self.TerminalScreen['yscrollcommand'] = self.scrollbar.set
         self.scrollbar['command'] = self.TerminalScreen.yview
-        self.scrollbar.pack(side=RIGHT, fill=Y)
+
+        self.frameScrollbar.bind("<Enter>", self.on_scrollbar_enter)
+        self.frameScrollbar.bind("<Leave>", self.on_scrollbar_leave)
+
+        # Initially map as leave event
+        self.frameScrollbar.bind("<Map>", self.on_scrollbar_leave)
 
         ########################################################################
         ## Status bar
@@ -148,9 +158,6 @@ class App(tk.Frame):
             borderwidth=0,
             relief=FLAT,
             arrowcolor=self.TerminalColors["bg"],
-
-            # hack to make arrow invisible
-            arrowsize=-10
         )
 
         self.style.map('TCombobox', background=[('hover', "#2F333D")])
@@ -183,13 +190,19 @@ class App(tk.Frame):
         # where scrollbar disappear when window resized
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
+        self.frameScrollbar.pack(side=RIGHT, fill=Y)
         self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True, padx=(4,0), pady=0)
+
 
         ########################################################################
         ## Key bindings
         ########################################################################
+        self.TerminalScreen.bind('<MouseWheel>', self.rollWheel)
+        self.frameScrollbar.bind('<MouseWheel>', self.rollWheel)
+        self.scrollbar.bind('<MouseWheel>', self.rollWheel)
+
+
         self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
-        self.TerminalScreen.bind('<MouseWheel>', lambda event: self.rollWheel(event))
         self.bind_keys()
 
         # Bind all other key press
@@ -218,6 +231,22 @@ class App(tk.Frame):
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
+
+
+    def on_scrollbar_enter(self, event):
+
+        self.style.configure("TScrollbar",
+            width=10,
+            arrowsize=10
+        )
+
+    def on_scrollbar_leave(self, eventL):
+
+        self.style.configure("TScrollbar",
+            width=5,
+            # hack to make arrow invisible
+            arrowsize=-10
+        )
 
 
 
@@ -257,15 +286,16 @@ class App(tk.Frame):
     def rollWheel(self, event):
         direction = 0
         if event.num == 5 or event.delta == -120:
-            direction = 1
+            direction = 3
         if event.num == 4 or event.delta == 120:
-            direction = -1
-        event.widget.yview_scroll(direction, UNITS)
+            direction = -3
+        self.TerminalScreen.yview_scroll(direction, UNITS)
+
+        return "break"
 
     def do_keyPress(self, event):
 
-        # On key press, always scroll to bottom
-        self.TerminalScreen.see(END)
+        import string
 
         # The obvious information
         c = event.keysym
@@ -279,13 +309,15 @@ class App(tk.Frame):
         if ctrl:
             return "break"
 
+
         char = event.char
 
         if self.terminalThread:
             self.pendingKeys += char
-        else:
+        elif char in list(string.printable):
             self.pendingKeys = ""
             self.TerminalScreen.insert("insert", char)
+            self.TerminalScreen.see(END)
 
         return "break"
 
@@ -608,6 +640,7 @@ class App(tk.Frame):
                 self.terminalThread.start()
 
                 self.count = 0
+                self.unbind_keys()
                 self.monitor(self.terminalThread)
 
 
@@ -674,8 +707,6 @@ class App(tk.Frame):
         seq2 = [".", "..", "...", "....", ".....", "....", "...", ".."]
 
         if progress_thread.is_alive():
-
-            self.unbind_keys()
 
             string = "{} Status: Working {}".format(seq1[self.count], seq2[self.count])
             self.count = (self.count + 1) % 8
@@ -752,7 +783,9 @@ if __name__ == "__main__":
     root.title("TkTerm - Terminal Emulator")
     root.geometry("700x400")
 
-    terminal = Terminal(root)
+
+    terminal = Terminal(root, bg="#282C34", bd=0)
     terminal.pack(expand=True, fill='both')
 
+    root.update()
     root.mainloop()
