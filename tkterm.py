@@ -67,7 +67,7 @@ class Redirect():
                 self.TerminalScreen.tag_add("output", start_pos, end_pos)
 
         # Gives slightly smoother print out and reduces CPU stress
-        time.sleep(0.0001)
+        # time.sleep(0.0001)
 
 
 class App(tk.Frame):
@@ -97,11 +97,13 @@ class App(tk.Frame):
             highlightthickness=0,
             borderwidth=0,
             insertwidth=0,
+            selectbackground="#464E5E",
             undo=False
         )
+
         self.TerminalScreen['blockcursor'] = True
 
-        self.frameScrollbar = Frame(self.frameTerminal, borderwidth=0, width=25, bg=self.TerminalColors["bg"])
+        self.frameScrollbar = Frame(self.frameTerminal, borderwidth=0, width=14, bg=self.TerminalColors["bg"])
         # tell frame not to let its children control its size
         self.frameScrollbar.pack_propagate(0)
 
@@ -234,6 +236,7 @@ class App(tk.Frame):
 
 
     def on_scrollbar_enter(self, event):
+
 
         self.style.configure("TScrollbar",
             width=10,
@@ -563,7 +566,7 @@ class App(tk.Frame):
     def do_return(self, *args):
         """ On pressing Return, execute the command """
 
-        # Caret character defers on Windows and Unix
+        # Caret character differs on Windows and Unix
         CARET = "^" if (os.name == 'nt') else "\\"
 
         cmd = self.get_cmd()
@@ -771,7 +774,7 @@ class Terminal(App):
 
 
 
-    def on_resize(self, *args):
+    def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
 
         if self.scrollbar.get()[1] >= 1:
@@ -787,5 +790,4 @@ if __name__ == "__main__":
     terminal = Terminal(root, bg="#282C34", bd=0)
     terminal.pack(expand=True, fill='both')
 
-    root.update()
     root.mainloop()
