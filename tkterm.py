@@ -742,7 +742,6 @@ class App(tk.Frame):
         print(cmd, end='')
         self.do_return()
 
-
 class Terminal(App):
 
     """ Terminal widget """
@@ -772,8 +771,6 @@ class Terminal(App):
         self.TerminalScreen.tag_config("error", foreground="red")
         self.TerminalScreen.tag_config("output", foreground="#E6E6E6")
 
-
-
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
 
@@ -789,5 +786,7 @@ if __name__ == "__main__":
 
     terminal = Terminal(root, bg="#282C34", bd=0)
     terminal.pack(expand=True, fill='both')
+
+    root.iconbitmap(default='icon.ico')
 
     root.mainloop()
