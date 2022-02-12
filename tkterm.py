@@ -7,6 +7,8 @@ import os
 import subprocess
 import time
 
+from utils import *
+
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
 
@@ -72,17 +74,19 @@ class Redirect():
 
 class App(tk.Frame):
     def __init__(self, parent, **kwargs):
-        # super().__init__()
         tk.Frame.__init__(self, parent, **kwargs)
 
         self.basename = ""
         self.commandIndex = -1
         self.commandHistory = []
 
-
-
         # get the root after
         self.after = self.winfo_toplevel().after
+
+        ########################################################################
+        ## Menu bar
+        ########################################################################
+        self.frameMenu = Frame(self, bg=self.TerminalColors['bg'], height=0, bd=0)
 
         ########################################################################
         ## Terminal screen
@@ -98,6 +102,7 @@ class App(tk.Frame):
             borderwidth=0,
             insertwidth=0,
             selectbackground="#464E5E",
+            font=self.terminalFont,
             undo=False
         )
 
@@ -190,6 +195,7 @@ class App(tk.Frame):
 
         # Need to pack these last otherwise a glitch happens
         # where scrollbar disappear when window resized
+        self.frameMenu.pack(fill=X, side=TOP)
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
         self.frameScrollbar.pack(side=RIGHT, fill=Y)
@@ -233,6 +239,8 @@ class App(tk.Frame):
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
+
+
 
 
     def on_scrollbar_enter(self, event):
@@ -284,6 +292,8 @@ class App(tk.Frame):
         self.TerminalScreen.bind("<Tab>",               lambda event: "break")
         self.TerminalScreen.bind("<Home>",              lambda event: "break")
         self.TerminalScreen.bind("<B1-Motion>",         lambda event: "break")
+
+
 
 
     def rollWheel(self, event):
@@ -742,7 +752,120 @@ class App(tk.Frame):
         print(cmd, end='')
         self.do_return()
 
-class Terminal(App):
+
+class Menus:
+    def __init__(self, parent, **kwargs):
+        self._popup = None
+        self._menubutton = []
+        self.parent = parent
+
+        # self.parent.bind('<Button-1>', self.on_popup)
+
+    def on_popup(self, event):
+        w = event.widget
+        # x, y, height = self.parent.winfo_rootx(), self.parent.winfo_rooty(), self.parent.winfo_height()
+
+
+        x = event.x_root
+        y = event.y_root
+
+        self._popup = tk.Toplevel(self.parent, bg="black")
+        self._popup.overrideredirect(True)
+        self._popup.geometry('+{}+{}'.format(x, y))
+
+        for kwargs in self._menubutton:
+            self._add_command(**kwargs)
+
+    def add_command(self, **kwargs):
+        self._menubutton.append(kwargs)
+
+    def _add_command(self, **kwargs):
+        command = kwargs.pop('command', None)
+
+        menu = self.parent
+        self.mb = tk.Menubutton(self._popup, text=kwargs['label'],
+                           bg="black",
+                           fg = "white",
+                        #    fg=menu.cget('fg'),
+                        #    activebackground=menu.cget('activebackground'),
+                        #    activeforeground=menu.cget('activeforeground'),
+                           borderwidth=0,
+                           )
+        self.mb._command = command
+        self.mb.bind('<Button-1>', self._on_command)
+        # mb.bind('<Button-3>', self._on_command)
+        # self.parent.bind("<Button-1>", self._popup.destroy)
+
+        self.mb.grid()
+
+    def _on_command(self, event):
+        w = event.widget
+        print('_on_command("{}")'.format(w.cget('text')))
+
+        # self._popup.grid_forget()
+        self.mb.grid_forget()
+
+        if w._command is not None:
+            w._command()
+
+
+
+
+
+
+class RightClickMenu:
+
+    def MenuBind(self):
+        self.m = Menu(self,
+            tearoff = 0,
+            bg="#1D1F23",
+            # fg="white",
+            borderwidth=0,
+            relief="solid",
+            activebackground="grey",
+            selectcolor="red",
+            activeborderwidth=0
+        )
+
+        self.m.add_command(label ="Copy")
+        self.m.add_command(label ="Paste")
+        self.m.add_command(label ="Reload")
+        self.m.add_separator()
+        self.m.add_checkbutton(label="Show Menubar", variable=self.show_menu, onvalue=True, offvalue=False, command=self.print_values)
+        self.m.add_checkbutton(label="Fullscreen", variable=self.fullscreen, onvalue=True, offvalue=False)
+        self.m.add_checkbutton(label="Read-Only", variable=self.readonly, onvalue=True, offvalue=False)
+        self.m.add_separator()
+        self.m.add_checkbutton(label="Settings...")
+
+        self.TerminalScreen.bind("<ButtonRelease-3>", self.do_popup)
+
+
+    def do_popup(self, event):
+        self.m.entryconfig("Show Menubar", command=self.print_values)
+        # try:
+        self.m.tk_popup(event.x_root+1, event.y_root+1)
+        # finally:
+        #     self.m.grab_release()
+        
+        # self.m.entryconfig("Show Menubar", command=lambda: self.print_values(event))
+
+    def print_values(self):
+
+        # print("Menu: {} {} {}".format(self.show_menu.get(), self.fullscreen.get(), self.readonly.get()))
+
+        if self.show_menu.get():
+            # self.frameMenu.configure(bg="grey")
+            self.menubar.pack(fill=X)
+            # self.menuFile.pack()
+            pass
+        else:
+            # self.menuFile.pack_forget()
+            # self.frameMenu.pack_propagate(0)
+            self.menubar.pack_forget()
+            self.frameMenu.configure(height=1)
+
+
+class Terminal(RightClickMenu, SearchFunctionality, App):
 
     """ Terminal widget """
 
@@ -756,9 +879,28 @@ class Terminal(App):
             "bg" : "#282C34"
         }
 
-        self.TerminalColors["fg"] = "green"
+        from tkinter import font
+        from tkinter.font import Font
+
+        self.TerminalColors["fg"] = "#00A79D"
+
+        if "Cascadia Code SemiLight" in font.families():
+            self.terminalFont = Font(family="Cascadia Code SemiLight", size=9)
+        else:
+            self.terminalFont = Font(family="Consolas", size=9)
+
 
         super().__init__(parent, *args, **kwargs)
+
+
+        self.menubar = Frame(self.frameMenu, bd=0)
+        self.menuFile = Button(self.menubar, text="File", bd=0)
+        self.menuFile.pack(side=LEFT)
+        # self.menubar.pack_propagate(0)
+        # self.menubar.pack(fill=X)
+
+
+
         parent.bind("<Configure>", self.on_resize)
 
         sys.stdout = Redirect(self, stream="stdout")
@@ -767,15 +909,39 @@ class Terminal(App):
         self.set_basename(os.getcwd())
         self.print_basename()
 
-        self.TerminalScreen.tag_config("basename", foreground="red")
+        normalFont = Font(font=self.terminalFont)
+        normalFont.configure(weight="normal")
+
+        boldFont = Font(font=self.terminalFont)
+        boldFont.configure(family="Cascadia Code SemiBold")
+        boldFont.configure(weight="bold")
+
+        self.TerminalScreen.tag_config("basename", foreground="red", font=boldFont)
         self.TerminalScreen.tag_config("error", foreground="red")
         self.TerminalScreen.tag_config("output", foreground="#E6E6E6")
+
+
+        self.show_menu = BooleanVar()
+        self.fullscreen = BooleanVar()
+        self.readonly = BooleanVar()
+
+        self.MenuBind()
+        self.Search_init()
+
+
 
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
 
+        first_visible_line = self.TerminalScreen.index("@0,0")
+
         if self.scrollbar.get()[1] >= 1:
             self.TerminalScreen.see(END)
+        elif float(first_visible_line) >  1.0:
+            self.TerminalScreen.see(float(first_visible_line)-1)
+
+        self.statusText.set(self.TerminalScreen.winfo_height())
+
 
 if __name__ == "__main__":
 
@@ -785,8 +951,11 @@ if __name__ == "__main__":
 
 
     terminal = Terminal(root, bg="#282C34", bd=0)
-    terminal.pack(expand=True, fill='both')
+    terminal.pack(expand=True, fill=BOTH)
 
-    root.iconbitmap(default='icon.ico')
+    # root.iconbitmap(default='icon.png')
+
+    photo = PhotoImage(file="icon.png")
+    root.iconphoto(False, photo)
 
     root.mainloop()
