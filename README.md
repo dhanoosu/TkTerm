@@ -11,12 +11,13 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 - Compatible with Windows and Unix systems
 - Return Code (RC) of previous run commands is shown at the bottom status bar
 - **Ctrl-C** to kill current running process
-- UP and DOWN arrow to cycle between next and previous commands in history
+- **Ctrl-F** to search; supports case sensitivity and regex searches
+- **UP** and **DOWN** arrow keys to cycle between next and previous commands in history
 - Unix-like **tab completion** on files and directories
 - Handles **multiline commands** using caret character `^` or `\`
 
 ## Requirements
-The Tkinter GUI library is built into Python, so no additional installation is needded.
+The Tkinter GUI library is built into Python, so no 3rd party library is required.
 
 Requires at least Python version 3 and above.
 
@@ -57,7 +58,7 @@ For multiline command to be considered there must be ***no** trailing space afte
 
 
 ```bash
-[tkterm]$> echo I ^
+$>> echo I ^
 > have apple ^
 > and banana
 I have apple and banana
