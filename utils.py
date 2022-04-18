@@ -3,7 +3,6 @@ from tkinter import *
 from tkinter import ttk
 import os
 
-from roundedframe import *
 from tooltip import Tooltip
 
 class SearchFunctionality:
