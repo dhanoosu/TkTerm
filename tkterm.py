@@ -8,7 +8,6 @@ import subprocess
 import time
 
 from utils import *
-from roundedframe import CreateRoundedFrame
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
