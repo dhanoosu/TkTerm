@@ -3,38 +3,8 @@ from tkinter import *
 from tkinter import ttk
 import os
 
-class CreateToolTip(object):
-    '''
-    create a tooltip for a given widget
-    '''
-    def __init__(self, widget, text='widget info', manual=False):
-        self.widget = widget
-        self.text = text
-
-        self.tw = None
-
-        if not manual:
-            self.widget.bind("<Enter>", self.enter)
-            self.widget.bind("<Leave>", self.close)
-
-    def enter(self, event=None):
-        x = y = 0
-        x, y, cx, cy = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() -1
-        y += self.widget.winfo_rooty() + 20
-        # creates a toplevel window
-        self.tw = tk.Toplevel(self.widget)
-        # Leaves only the label and removes the app window
-        self.tw.wm_overrideredirect(True)
-        self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = tk.Label(self.tw, text=self.text, justify='left',
-                       relief='solid', borderwidth=1, wraplength=150,
-                       font=("Helvetica", "7", "normal"))
-        label.pack(ipadx=1)
-
-    def close(self, event=None):
-        if self.tw:
-            self.tw.destroy()
+from roundedframe import *
+from tooltip import Tooltip
 
 class SearchFunctionality:
 
@@ -68,7 +38,6 @@ class SearchFunctionality:
     def searchbar_function(self, event):
 
         search_config = {
-            "cursor"    : "arrow",
             "bd"        : 0,
             "fg"        : "white",
             "bg"        : "#21252B",
@@ -81,14 +50,15 @@ class SearchFunctionality:
             # create an info window in the bottom right corner and
             # inset a couple of pixels
             self.frameSearchBar = tk.Frame(self.TerminalScreen, width=20, height=50, borderwidth=0, bg="#21252B", relief=FLAT)
+            # self.frameSearchBar = CreateRoundedFrame(self.TerminalScreen)
 
             self.searchFieldText = StringVar()
 
             self.searchField = Entry(
                 self.frameSearchBar,
                 textvariable = self.searchFieldText,
-                fg="white",
-                bg="black",
+                fg="#b2b2b3",
+                bg="#1d1f23",
                 insertbackground="white",
                 relief=FLAT,
                 highlightbackground="black",
@@ -99,11 +69,10 @@ class SearchFunctionality:
             self.searchField.bind('<Escape>',       self.close_search)
 
 
-            self.searchFieldText.trace_add("write", self.do_search)
+            self.searchFieldText.trace("w", self.do_search)
 
 
             self.searchField.pack(side=LEFT, padx=(5,0), pady=(5))
-
 
             self.searchResultText = StringVar()
             self.searchResultText.set("No results")
@@ -111,7 +80,7 @@ class SearchFunctionality:
             def toggle_searchRegex():
                 self.searchRegex = not self.searchRegex
 
-                bg = "red" if self.searchRegex else "black"
+                bg = "red" if self.searchRegex else "#1d1f23"
                 self.searchRegexButton.configure(bg=bg)
 
                 self.do_search()
@@ -119,34 +88,38 @@ class SearchFunctionality:
             def toggle_searchCaseSensitive():
                 self.searchCaseSensitive = not self.searchCaseSensitive
 
-                bg = "red" if self.searchCaseSensitive else "black"
+                bg = "red" if self.searchCaseSensitive else "#1d1f23"
                 self.searchCaseButton.configure(bg=bg)
 
                 self.do_search()
 
-            self.searchCaseButton = Button(self.frameSearchBar, cursor="arrow", image=self.click_case, bg="black", relief=FLAT, bd=0, highlightbackground="black", command=toggle_searchCaseSensitive)
+            self.searchCaseButton = Button(self.frameSearchBar, cursor="hand2", image=self.click_case, bg="#1d1f23", relief=FLAT, bd=0, highlightbackground="#1d1f23", command=toggle_searchCaseSensitive)
             self.searchCaseButton.pack(side=LEFT, fill=Y, pady=5)
+            Tooltip(self.searchCaseButton, text="Match Case", delay=1)
 
-            self.searchRegexButton = Button(self.frameSearchBar, cursor="arrow", image=self.click_regex, bg="black", relief=FLAT, bd=0, highlightbackground="black", command=toggle_searchRegex)
+            self.searchRegexButton = Button(self.frameSearchBar, cursor="hand2", image=self.click_regex, bg="#1d1f23", relief=FLAT, bd=0, highlightbackground="#1d1f23", command=toggle_searchRegex)
             self.searchRegexButton.pack(side=LEFT, fill=Y, pady=5)
+            Tooltip(self.searchRegexButton, text="Use Regular Expression", delay=1)
 
             self.searchResult   = Label(self.frameSearchBar, textvariable=self.searchResultText, width=8, anchor=W, **search_config)
             self.searchResult.pack(side=LEFT, padx=(5), fill=Y)
 
-            self.searchPrev     = Button(self.frameSearchBar, image=self.click_prev, width=30, highlightbackground= "#21252B", **search_config, command= lambda: self.do_search_next_or_prev(False))
+            self.searchPrev     = Button(self.frameSearchBar, cursor="hand2", image=self.click_prev, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(False), **search_config)
             self.searchPrev.pack(side=LEFT, padx=(2), fill=Y)
+            Tooltip(self.searchPrev, text="Previous Match (Shift+Enter)", delay=1)
 
-            self.searchNext     = Button(self.frameSearchBar, image=self.click_next, width=30, highlightbackground= "#21252B", **search_config, command= lambda: self.do_search_next_or_prev(True))
+            self.searchNext     = Button(self.frameSearchBar, cursor="hand2", image=self.click_next, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(True), **search_config)
             self.searchNext.pack(side=LEFT, padx=(2), fill=Y)
+            Tooltip(self.searchNext, text="Next Match (Enter)", delay=1)
 
             self.searchClose = Button(
                 self.frameSearchBar,
-                # text="X",
+                cursor="hand2",
                 image=self.click_close,
-                **search_config,
                 highlightbackground="#21252B",
                 width=30,
                 command=self.close_search,
+                **search_config
             )
             self.searchClose.pack(side=LEFT, padx=(2), fill=Y)
 
@@ -187,11 +160,11 @@ class SearchFunctionality:
         self.foundList.clear()
 
         if not self.searchRegexTooltip:
-            self.searchRegexTooltip = CreateToolTip(self.searchField, "", manual=True)
+            self.searchRegexTooltip = Tooltip(self.searchField, "", manual=True)
         else:
             self.searchRegexTooltip.close()
 
-        self.searchField.configure(bg = "black")
+        self.searchField.configure(bg = "#1d1f23")
 
         if value:
 
@@ -203,15 +176,16 @@ class SearchFunctionality:
 
                 try:
                     idx = self.TerminalScreen.search(value, idx, nocase=(not self.searchCaseSensitive), stopindex=END, regexp=self.searchRegex)
-                    self.searchField.configure(bg = "black")
-                except Exception as e:
+                    self.searchField.configure(bg = "#1d1f23")
+                except Exception as err:
                     # self.searchField.configure(borderwidth= 2)
                     self.searchField.configure(bg = "red")
-                    self.searchRegexTooltip.text = e
-                    self.searchRegexTooltip.enter()
+                    self.searchRegexTooltip.text = err
+                    self.searchRegexTooltip.create()
                     break
 
                 if not idx:
+                    self.searchResult['fg'] = "#f4875b" if self.searchFoundCount == 0 else "#b2b2b3"
                     break
 
                 lastidx = "{}+{}c".format(idx, len(value))

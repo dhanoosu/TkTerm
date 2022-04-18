@@ -8,6 +8,7 @@ import subprocess
 import time
 
 from utils import *
+from roundedframe import CreateRoundedFrame
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
@@ -937,10 +938,10 @@ class Terminal(RightClickMenu, SearchFunctionality, App):
 
         if self.scrollbar.get()[1] >= 1:
             self.TerminalScreen.see(END)
-        elif float(first_visible_line) >  1.0:
-            self.TerminalScreen.see(float(first_visible_line)-1)
+        # elif float(first_visible_line) >  1.0:
+        #     self.TerminalScreen.see(float(first_visible_line)-1)
 
-        self.statusText.set(self.TerminalScreen.winfo_height())
+        # self.statusText.set(self.TerminalScreen.winfo_height())
 
 
 if __name__ == "__main__":
