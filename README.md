@@ -44,7 +44,15 @@ root.mainloop()
 ```
 
 ## Customisation options
--TODO-
+Customise Terminal interface by `Right-click > Settings...`
+
+<p align="center">
+<img src="img/settings.png">
+</p>
+
+**Note**: \
+Clicking `Save config` saves setting configuration to a file.\
+Tkterm will automatically load this file the next time it starts up.
 
 ## Multiline command
 Long lines of command can be broken up using a caret. A caret at the line end appends the next line command with the current command.

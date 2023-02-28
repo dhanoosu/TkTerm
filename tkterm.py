@@ -1,13 +1,24 @@
 import tkinter as tk
+import tkinter.messagebox
+
 from tkinter import *
 from tkinter import ttk
 
+from tkinter import colorchooser
+from tkinter import font
+from tkinter.font import Font
+
 import threading
 import os
+import sys
 import subprocess
 import time
+import json
 
 from utils import *
+
+# Configuration filename
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "tkterm_settings.json")
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
@@ -84,11 +95,6 @@ class App(tk.Frame):
         self.after = self.winfo_toplevel().after
 
         ########################################################################
-        ## Menu bar
-        ########################################################################
-        self.frameMenu = Frame(self, bg=self.TerminalColors['bg'], height=0, bd=0)
-
-        ########################################################################
         ## Terminal screen
         ########################################################################
         self.frameTerminal = tk.Frame(self, borderwidth=0, relief=FLAT, bg=self.TerminalColors["bg"])
@@ -100,19 +106,15 @@ class App(tk.Frame):
             insertbackground="white",
             highlightthickness=0,
             borderwidth=0,
-            insertwidth=0,
-            selectbackground="#464E5E",
-            font=self.terminalFont,
+            insertwidth=1,
             undo=False
         )
-
-        self.TerminalScreen['blockcursor'] = True
 
         self.frameScrollbar = Frame(self.frameTerminal, borderwidth=0, width=14, bg=self.TerminalColors["bg"])
         # tell frame not to let its children control its size
         self.frameScrollbar.pack_propagate(0)
 
-        self.scrollbar = ttk.Scrollbar(self.frameScrollbar, orient="vertical")
+        self.scrollbar = ttk.Scrollbar(self.frameScrollbar, style="Terminal.Vertical.TScrollbar", orient="vertical")
         self.scrollbar.pack(anchor=E, side=RIGHT, fill=Y, expand=True, padx=(0,3))
 
         self.TerminalScreen['yscrollcommand'] = self.scrollbar.set
@@ -127,14 +129,14 @@ class App(tk.Frame):
         ########################################################################
         ## Status bar
         ########################################################################
-        self.frameStatusBar = ttk.Frame(self)
+        self.frameStatusBar = ttk.Frame(self, style="Status.TFrame")
 
         self.returnCodeLabel = Label(self.frameStatusBar, text="RC: 0", fg="white", bg="green", font=("Helvetica", 8), anchor=W, width=8)
         self.returnCodeLabel.pack(side=LEFT)
 
         self.statusText = StringVar()
         self.statusText.set("Status: IDLE")
-        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("Helvetica", 8), bg="#21252B", fg="#9DA5B4", relief=FLAT)
+        self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("Helvetica", 8), relief=FLAT)
         self.statusLabel.pack(side=LEFT)
 
 
@@ -148,9 +150,6 @@ class App(tk.Frame):
         ## Style configure for ttk widgets
         ########################################################################
         style_combobox = {
-            'fieldbackground'       : "#21252B",    # current field background
-            'background'            : '#21252B',    # arrow box background
-            'foreground'            : "#9DA5B4",    # current field foreground
             "relief"                : FLAT,
             "borderwidth"           : 0,
             "highlightthickness"    : 0
@@ -158,23 +157,14 @@ class App(tk.Frame):
 
         self.style = ttk.Style(self)
         self.style.theme_use('default')
-        self.style.configure("TCombobox", **style_combobox)
-        self.style.configure("TScrollbar",
-            troughcolor=self.TerminalColors["bg"],
+        self.style.configure("Shell.TCombobox", **style_combobox)
+        self.style.configure("Terminal.Vertical.TScrollbar",
             background="#3A3E48",
             borderwidth=0,
-            relief=FLAT,
-            arrowcolor=self.TerminalColors["bg"],
+            relief=FLAT
         )
 
-        self.style.map('TCombobox', background=[('hover', "#2F333D")])
-        self.style.map('TCombobox', fieldbackground=[('hover', "#2F333D")])
-        self.style.map('TCombobox', arrowcolor=[('readonly', '#21252B')])
-
-        self.style.map('TScrollbar', background=[('active', "#9DA5B4"), ('pressed', "#9DA5B4"), ('disabled', self.TerminalColors["bg"])])
-        self.style.map('TScrollbar', arrowcolor=[('disabled', self.TerminalColors["bg"]), ('active', self.TerminalColors["bg"])])
-
-        self.style.configure("TFrame", background="#21252B", borderwidth=0, relief=FLAT)
+        self.style.configure("Status.TFrame", background="#21252B", borderwidth=0, relief=FLAT)
 
 
         # following are style option for the drop down combobox listbox
@@ -183,11 +173,17 @@ class App(tk.Frame):
         self.option_add('*TCombobox*Listbox.font', ("Helvetica", 8))
 
 
-        self.shellComboBox = ttk.Combobox(self.frameStatusBar, state="readonly", width=8, font=("Helvetica", 8))
+        self.shellComboBox = ttk.Combobox(self.frameStatusBar, style="Shell.TCombobox", state="readonly", width=8, font=("Helvetica", 8))
         self.shellComboBox.pack(side=RIGHT, padx=0)
         self.shellComboBox['values'] = list(self.shellMapping)
 
         self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
+
+        ########################################################################
+        ## Set style colours
+        ########################################################################
+
+        self.set_color_style()
 
         ########################################################################
         ## Packing
@@ -195,7 +191,6 @@ class App(tk.Frame):
 
         # Need to pack these last otherwise a glitch happens
         # where scrollbar disappear when window resized
-        self.frameMenu.pack(fill=X, side=TOP)
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
         self.frameScrollbar.pack(side=RIGHT, fill=Y)
@@ -227,7 +222,7 @@ class App(tk.Frame):
         if (os.name == 'nt'):
             self.shellComboBox.set("windows")
         else:
-            self.shellComboBox.set("csh")
+            self.shellComboBox.set("bash")
 
 
         self.processTerminated = False;
@@ -240,41 +235,115 @@ class App(tk.Frame):
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
 
+    def set_color_style(self):
+        """
+        Set coloring style for widgets
+        """
+        self.TerminalScreen["bg"]               = self.TerminalColors["bg"]
+        self.TerminalScreen["fg"]               = self.TerminalColors["fg"]
+        self.TerminalScreen["selectbackground"] = self.TerminalColors["selectbackground"]
 
+        self.frameTerminal["bg"] = self.TerminalColors["bg"]
+        self.frameScrollbar["bg"] = self.TerminalColors["bg"]
+
+        ########################################################################
+        ## Font
+        ########################################################################
+
+        terminalFont = Font(family=self.TerminalColors["fontfamily"], size=self.TerminalColors["fontsize"])
+        self.TerminalScreen["font"] = terminalFont
+
+        boldFont = Font(font=terminalFont)
+        boldFont.configure(weight="bold")
+
+        self.TerminalScreen.tag_config("basename", foreground=self.TerminalColors["basename"], font=boldFont)
+        self.TerminalScreen.tag_config("error", foreground=self.TerminalColors["error"])
+        self.TerminalScreen.tag_config("output", foreground=self.TerminalColors["output"])
+
+        ########################################################################
+        ## Scrollbar
+        ########################################################################
+
+        self.style.configure("Terminal.Vertical.TScrollbar", troughcolor=self.TerminalColors["bg"])
+        self.style.configure("Terminal.Vertical.TScrollbar", arrowcolor=self.TerminalColors["bg"])
+
+        self.style.map('Terminal.Vertical.TScrollbar',
+            background=[
+                ('active', "#9DA5B4"), ('pressed', "#9DA5B4"),
+                ('disabled', self.TerminalColors["bg"])
+            ],
+            arrowcolor=[
+                ('disabled', self.TerminalColors["bg"]),
+                ('active', self.TerminalColors["bg"])
+            ]
+        )
+
+        ########################################################################
+        ## Shell selection combobox
+        ########################################################################
+
+        self.style.map('Shell.TCombobox', background=[('hover', "#2F333D")])
+        self.style.map('Shell.TCombobox', fieldbackground=[('hover', "#2F333D")])
+        self.style.map('Shell.TCombobox', arrowcolor=[('readonly', '#21252B')])
+
+        self.style.configure("Shell.TCombobox", fieldbackground="#21252B") # current field background
+        self.style.configure("Shell.TCombobox", background="#21252B") # arrow box background
+        self.style.configure("Shell.TCombobox", foreground="#9DA5B4") # current field foreground
+
+        ########################################################################
+        ## Status bar
+        ########################################################################
+
+        self.statusLabel["bg"] = "#21252B"
+        self.statusLabel["fg"] = "#9DA5B4"
+
+        # Use i-beam cursor
+        if self.TerminalColors["cursorshape"] == "bar":
+            self.TerminalScreen['blockcursor'] = False
+            self.TerminalScreen['insertwidth'] = 1
+
+        # Use block cursor
+        elif self.TerminalColors["cursorshape"] == "block":
+            self.TerminalScreen['blockcursor'] = True
+            self.TerminalScreen['insertwidth'] = 0
 
 
     def on_scrollbar_enter(self, event):
+        """
+        On focus on scrollbar increase width of scrollbar
+        """
 
-
-        self.style.configure("TScrollbar",
+        self.style.configure("Terminal.Vertical.TScrollbar",
             width=10,
             arrowsize=10
         )
 
     def on_scrollbar_leave(self, eventL):
+        """
+        On focus off from scrollbar decrease width of scrollbar
+        """
 
-        self.style.configure("TScrollbar",
+        self.style.configure("Terminal.Vertical.TScrollbar",
             width=5,
+
             # hack to make arrow invisible
             arrowsize=-10
         )
 
-
-
     def bind_keys(self):
-        self.TerminalScreen.bind("<Return>",            self.do_return)
-        self.TerminalScreen.bind("<Up>",                self.do_upArrow)
-        self.TerminalScreen.bind("<Down>",              self.do_downArrow)
-        self.TerminalScreen.bind("<BackSpace>",         self.do_backspace)
+        self.TerminalScreen.bind("<Return>",            self.do_keyReturn)
+        self.TerminalScreen.bind("<Up>",                self.do_keyUpArrow)
+        self.TerminalScreen.bind("<Down>",              self.do_keyDownArrow)
+        self.TerminalScreen.bind("<BackSpace>",         self.do_keyBackspace)
         self.TerminalScreen.bind("<Delete>",            lambda event: "")
         self.TerminalScreen.bind("<End>",               lambda event: "")
-        self.TerminalScreen.bind("<Left>",              self.do_leftArrow)
+        self.TerminalScreen.bind("<Left>",              self.do_keyLeftArrow)
         self.TerminalScreen.bind("<Right>",             lambda event: "")
-        self.TerminalScreen.bind("<Button-1>",          self.do_click)
-        self.TerminalScreen.bind("<ButtonRelease-1>",   self.do_clickRelease)
+        self.TerminalScreen.bind("<Button-1>",          self.do_leftClick)
+        self.TerminalScreen.bind("<ButtonRelease-1>",   self.do_leftClickRelease)
         self.TerminalScreen.bind("<ButtonRelease-2>",   self.do_middleClickRelease)
-        self.TerminalScreen.bind("<Tab>",               self.do_tab)
-        self.TerminalScreen.bind("<Home>",              self.do_home)
+        self.TerminalScreen.bind("<Tab>",               self.do_keyTab)
+        self.TerminalScreen.bind("<Home>",              self.do_keyHome)
         self.TerminalScreen.unbind("<B1-Motion>")
 
     def unbind_keys(self):
@@ -418,7 +487,7 @@ class App(tk.Frame):
             shellSelected = self.outer_instance.shellComboBox.get()
             process_options['executable'] = self.shellMapping[shellSelected]
 
-            if self.cmd is not "":
+            if self.cmd != "":
 
                 with subprocess.Popen(self.cmd, **process_options) as self.process:
 
@@ -462,7 +531,7 @@ class App(tk.Frame):
 
         self.basename = text + postfix + " "
 
-    def do_home(self, *args):
+    def do_keyHome(self, *args):
         """ Press HOME to return to the start position of command """
 
         pos = self.get_pos_after_basename()
@@ -492,11 +561,11 @@ class App(tk.Frame):
         pos = self.get_pos_after_basename()
         self.TerminalScreen.delete(pos, END)
 
-    def do_tab(self, *args):
+    def do_keyTab(self, *args):
         """ Tab completion """
 
         # Windows uses backward slash
-        # Uninx uses forward slash
+        # Unix uses forward slash
         slash = os.sep
 
         raw_cmd = self.get_cmd()
@@ -550,7 +619,11 @@ class App(tk.Frame):
 
         return "break"
 
-    def do_clickRelease(self, *args):
+    def do_leftClickRelease(self, *args):
+
+        # Unhide cursor
+        self.TerminalScreen["insertwidth"] = 1
+        self.TerminalScreen["insertbackground"] = "white"
 
         self.TerminalScreen.mark_set("insert", self.insertionIndex)
 
@@ -566,14 +639,18 @@ class App(tk.Frame):
 
         return "break"
 
-    def do_click(self, *args):
+    def do_leftClick(self, *args):
+
+        # Hide cursor
+        self.TerminalScreen["insertwidth"] = 0
+        self.TerminalScreen["insertbackground"] = self.TerminalColors["selectbackground"]
 
         self.insertionIndex = self.TerminalScreen.index("insert")
         # self.TerminalScreen.mark_set("insert", self.insertionIndex)
         # return "break"
         pass
 
-    def do_return(self, *args):
+    def do_keyReturn(self, *args):
         """ On pressing Return, execute the command """
 
         # Caret character differs on Windows and Unix
@@ -659,7 +736,7 @@ class App(tk.Frame):
 
         return 'break'
 
-    def do_backspace(self, *args):
+    def do_keyBackspace(self, *args):
         """ Delete a character until the basename """
 
         index = self.TerminalScreen.index("insert-1c")
@@ -669,7 +746,7 @@ class App(tk.Frame):
 
         return "break"
 
-    def do_leftArrow(self, *args):
+    def do_keyLeftArrow(self, *args):
         """ Moves cursor to the left until it reaches the basename """
 
         index = self.TerminalScreen.index("insert-1c")
@@ -677,7 +754,7 @@ class App(tk.Frame):
         if int(str(index).split('.')[1]) < len(self.basename):
             return "break"
 
-    def do_upArrow(self, *args):
+    def do_keyUpArrow(self, *args):
         """ Press UP arrow to get previous command in history """
 
         if self.commandIndex < len(self.commandHistory) - 1:
@@ -690,7 +767,7 @@ class App(tk.Frame):
 
         return 'break'
 
-    def do_downArrow(self, *args):
+    def do_keyDownArrow(self, *args):
         """ Press Down arrow to get the next command in history """
 
         if self.commandIndex >= 1:
@@ -750,75 +827,27 @@ class App(tk.Frame):
         while self.terminalThread: pass
 
         print(cmd, end='')
-        self.do_return()
+        self.do_keyReturn()
 
+class RightClickContextMenu:
 
-class Menus:
-    def __init__(self, parent, **kwargs):
-        self._popup = None
-        self._menubutton = []
-        self.parent = parent
+    def __init__(self, top_level):
 
-        # self.parent.bind('<Button-1>', self.on_popup)
+        self.top = top_level
 
-    def on_popup(self, event):
-        w = event.widget
-        # x, y, height = self.parent.winfo_rootx(), self.parent.winfo_rooty(), self.parent.winfo_height()
+        self.showmenu = BooleanVar()
+        self.fullscreen = BooleanVar()
+        self.readonly = BooleanVar()
 
+        self.bind_menu()
 
-        x = event.x_root
-        y = event.y_root
+        self.setting_win_top = False
 
-        self._popup = tk.Toplevel(self.parent, bg="black")
-        self._popup.overrideredirect(True)
-        self._popup.geometry('+{}+{}'.format(x, y))
-
-        for kwargs in self._menubutton:
-            self._add_command(**kwargs)
-
-    def add_command(self, **kwargs):
-        self._menubutton.append(kwargs)
-
-    def _add_command(self, **kwargs):
-        command = kwargs.pop('command', None)
-
-        menu = self.parent
-        self.mb = tk.Menubutton(self._popup, text=kwargs['label'],
-                           bg="black",
-                           fg = "white",
-                        #    fg=menu.cget('fg'),
-                        #    activebackground=menu.cget('activebackground'),
-                        #    activeforeground=menu.cget('activeforeground'),
-                           borderwidth=0,
-                           )
-        self.mb._command = command
-        self.mb.bind('<Button-1>', self._on_command)
-        # mb.bind('<Button-3>', self._on_command)
-        # self.parent.bind("<Button-1>", self._popup.destroy)
-
-        self.mb.grid()
-
-    def _on_command(self, event):
-        w = event.widget
-        print('_on_command("{}")'.format(w.cget('text')))
-
-        # self._popup.grid_forget()
-        self.mb.grid_forget()
-
-        if w._command is not None:
-            w._command()
-
-
-
-
-
-
-class RightClickMenu:
-
-    def MenuBind(self):
-        self.m = Menu(self,
+    def bind_menu(self):
+        self.menu = tk.Menu(self.top,
             tearoff = 0,
-            bg="#1D1F23",
+            # bg="#1D1F23",
+            bg="white",
             # fg="white",
             borderwidth=0,
             relief="solid",
@@ -827,45 +856,356 @@ class RightClickMenu:
             activeborderwidth=0
         )
 
-        self.m.add_command(label ="Copy")
-        self.m.add_command(label ="Paste")
-        self.m.add_command(label ="Reload")
-        self.m.add_separator()
-        self.m.add_checkbutton(label="Show Menubar", variable=self.show_menu, onvalue=True, offvalue=False, command=self.print_values)
-        self.m.add_checkbutton(label="Fullscreen", variable=self.fullscreen, onvalue=True, offvalue=False)
-        self.m.add_checkbutton(label="Read-Only", variable=self.readonly, onvalue=True, offvalue=False)
-        self.m.add_separator()
-        self.m.add_checkbutton(label="Settings...")
+        self.menu.add_command(label ="Copy")
+        self.menu.add_command(label ="Paste")
+        self.menu.add_command(label ="Reload")
+        self.menu.add_separator()
+        self.menu.add_command(label="Settings...", command=self._showSettings)
 
-        self.TerminalScreen.bind("<ButtonRelease-3>", self.do_popup)
+        self.top.TerminalScreen.bind("<ButtonRelease-3>", self._popup)
+        self.menu.bind('<FocusOut>', self.on_focusout_popup)
+
+    def on_focusout_popup(self, event=None):
+        self.menu.unpost()
+
+    def _popup(self, event):
+
+        try:
+            # self.menu.tk_popup(event.x_root+1, event.y_root+1)
+            self.menu.post(event.x_root+1, event.y_root+1)
+            self.menu.focus_set()
+        finally:
+            self.menu.grab_release()
+
+    def _showSettings(self):
+
+        def _init():
+
+            fieldTexts["background"].set(self.top.TerminalColors["bg"])
+            fieldTexts["foreground"].set(self.top.TerminalColors["fg"])
+            fieldTexts["basename"].set(self.top.TerminalColors["basename"])
+            fieldTexts["error"].set(self.top.TerminalColors["error"])
+            fieldTexts["output"].set(self.top.TerminalColors["output"])
+            fieldTexts["selectbackground"].set(self.top.TerminalColors["selectbackground"])
+
+            mappings = dict(zip(cursorShapeMappings.values(), cursorShapeMappings.keys()))
+            cursorCombobox.set(mappings[self.top.TerminalColors["cursorshape"]])
+
+            fontFamilyCombobox.set(self.top.TerminalColors["fontfamily"])
+            fontSizeFieldText.set(self.top.TerminalColors["fontsize"])
+
+        def _do_restoreDefault():
+
+            self.top.TerminalColors = self.top.DefaultTerminalColors.copy()
+            _init()
+
+        def _init_sample():
+
+            sampleTerminal["state"] = "normal"
+
+            try:
+
+                isError = False
+
+                sample_font = Font(family=fontFamilyCombobox.get(), size=int(fontSizeFieldText.get()))
+
+                sampleTerminal["bg"] = fieldTexts["background"].get()
+                sampleTerminal["selectbackground"] = fieldTexts["selectbackground"].get()
+                sampleTerminal["font"] = sample_font
+
+                sampleTerminal.delete("1.0", END)
+
+                boldFont = Font(font=sample_font)
+                boldFont.configure(weight="bold")
+
+                sampleTerminal.insert(END, "basename>>")
+                sampleTerminal.tag_add("basename", get_last_line(sampleTerminal), sampleTerminal.index("insert"))
+                sampleTerminal.tag_config("basename", foreground=fieldTexts["basename"].get(), font=boldFont)
+
+                sampleTerminal.insert(END, " ")
+
+                start_pos = sampleTerminal.index("insert")
+
+                sampleTerminal.insert(END, "command")
+                sampleTerminal.tag_add("command", start_pos, sampleTerminal.index("insert"))
+                sampleTerminal.tag_config("command", foreground=fieldTexts["foreground"].get())
+
+                sampleTerminal.insert(END, "\n")
+
+                start_pos = sampleTerminal.index("insert")
+
+                output_text = """\
+This is a sample output message from a given command
+Second line ...
+Third line ...
+^C
+"""
+                sampleTerminal.insert(END, output_text)
+                sampleTerminal.tag_add("output", start_pos, sampleTerminal.index("insert"))
+                sampleTerminal.tag_config("output", foreground=fieldTexts["output"].get())
 
 
-    def do_popup(self, event):
-        self.m.entryconfig("Show Menubar", command=self.print_values)
-        # try:
-        self.m.tk_popup(event.x_root+1, event.y_root+1)
-        # finally:
-        #     self.m.grab_release()
-        
-        # self.m.entryconfig("Show Menubar", command=lambda: self.print_values(event))
+                start_pos = sampleTerminal.index("insert")
 
-    def print_values(self):
+                error_text = "Terminate.\nAn error has occurred"
+                sampleTerminal.insert(END, error_text)
+                sampleTerminal.tag_add("error", start_pos, sampleTerminal.index("insert"))
+                sampleTerminal.tag_config("error", foreground=fieldTexts["error"].get())
 
-        # print("Menu: {} {} {}".format(self.show_menu.get(), self.fullscreen.get(), self.readonly.get()))
+            except:
+                isError = True
 
-        if self.show_menu.get():
-            # self.frameMenu.configure(bg="grey")
-            self.menubar.pack(fill=X)
-            # self.menuFile.pack()
-            pass
-        else:
-            # self.menuFile.pack_forget()
-            # self.frameMenu.pack_propagate(0)
-            self.menubar.pack_forget()
-            self.frameMenu.configure(height=1)
+            sampleTerminal["state"] = "disabled"
 
 
-class Terminal(RightClickMenu, SearchFunctionality, App):
+        def _populate_color_fields(name, row, color="white"):
+
+            label = tk.Label(frameSettings, text=name)
+
+            field = StringVar()
+            field.set(color)
+
+            entry = tk.Entry(frameSettings, textvariable=field, relief=FLAT)
+            button = tk.Button(frameSettings, width=2, height=1, relief=FLAT, cursor="hand2", command= lambda: _choose_color(field))
+
+            field.trace("w", lambda *args: _update_color(button, field))
+
+            label.grid(sticky="W", padx=(0,10), row=row, column=0)
+            entry.grid(sticky="W", row=row, column=1)
+            button.grid(sticky="W", padx=10, row=row, column=2)
+
+            fieldTexts[name] = field
+
+        def _update_color(entry, field):
+            try:
+                entry["text"] = ""
+                entry["bg"] = field.get()
+                entry["activebackground"] = field.get()
+            except:
+                entry["text"] = "Err"
+                entry["bg"] = "white"
+                entry["fg"] = "red"
+
+            _init_sample()
+
+        def _choose_color(field):
+
+            try:
+                result = colorchooser.askcolor(title="Color Chooser", parent=self.setting_win_top, initialcolor=field.get())
+            except:
+                result = colorchooser.askcolor(title="Color Chooser", parent=self.setting_win_top)
+
+            field.set(result[1])
+
+            _init_sample()
+
+        def _do_ok():
+
+            result = _do_apply()
+
+            if result:
+                self.setting_win_top.destroy()
+            else:
+                self.setting_win_top.lift()
+                self.setting_win_top.focus_set()
+
+        def _do_apply():
+
+            try:
+                self.top.TerminalColors["bg"]               = fieldTexts["background"].get()
+                self.top.TerminalColors["fg"]               = fieldTexts["foreground"].get()
+                self.top.TerminalColors["cursorshape"]      = cursorShapeMappings[cursorCombobox.get()]
+                self.top.TerminalColors["fontfamily"]       = fontFamilyCombobox.get()
+                self.top.TerminalColors["fontsize"]         = fontSizeFieldText.get()
+                self.top.TerminalColors["output"]           = fieldTexts["output"].get()
+                self.top.TerminalColors["error"]            = fieldTexts["error"].get()
+                self.top.TerminalColors["basename"]         = fieldTexts["basename"].get()
+                self.top.TerminalColors["selectbackground"] = fieldTexts["selectbackground"].get()
+
+                self.top.set_color_style()
+
+            except:
+                tkinter.messagebox.showerror(title="Invalid input", message="Found invalid input. Please check your settings")
+                self.setting_win_top.lift()
+                self.setting_win_top.focus_set()
+                return False
+
+            return True
+
+        def _update_cursorShapeSelected(*args):
+            cursorCombobox.selection_clear()
+
+            _init_sample()
+
+        def _do_saveConfig():
+
+            result = _do_apply()
+
+            if result:
+                with open(CONFIG_FILE, "w") as f:
+                    f.write(json.dumps(self.top.TerminalColors, indent = 4))
+
+                tkinter.messagebox.showinfo(title="Configuration saved", message="Successfully saved configuration to file.\n{}".format(CONFIG_FILE))
+
+            else:
+                self.setting_win_top.lift()
+                self.setting_win_top.focus_set()
+
+        def _update_FontFamilySelected(*args):
+
+            fontFamilyCombobox.selection_clear()
+            _init_sample()
+
+        def _change_font_size(mode):
+
+            assert(mode in ["decrease", "increase"])
+
+            if mode == "decrease":
+                fontSizeFieldText.set(int(fontSizeFieldText.get()) - 1)
+            elif mode == "increase":
+                fontSizeFieldText.set(int(fontSizeFieldText.get()) + 1)
+
+        #
+        # If popup window existed, bring it up
+        #
+        if self.setting_win_top:
+            try:
+                self.setting_win_top.lift()
+                self.setting_win_top.focus_set()
+                return
+            except:
+                pass
+
+        #
+        # Create new popup window
+        #
+        self.setting_win_top = Toplevel(root)
+        self.setting_win_top.geometry("750x500")
+        self.setting_win_top.resizable(False, False)
+
+        self.setting_win_top.title("Settings")
+        self.setting_win_top.focus_set()
+
+        ########################################################################
+        # Notebook
+        ########################################################################
+
+        tabControl = ttk.Notebook(self.setting_win_top)
+
+        tab1 = tk.Frame(tabControl)
+        tab1.pack(expand=True, fill=BOTH)
+
+        ########################################################################
+        # Tabs
+        ########################################################################
+
+        tabControl.pack(expand=True, fill=BOTH)
+        tabControl.add(tab1, text ='Appearance')
+
+        ########################################################################
+        # Frames
+        ########################################################################
+
+        frameWrap = tk.Frame(tab1)
+        frameWrap.pack(expand=True, fill=BOTH, padx=10, pady=10)
+
+        frameTop = tk.Frame(frameWrap)
+        frameTop.pack(expand=True, fill=X)
+
+        frameSettings = tk.Frame(frameTop)
+        frameSettings.pack(side=LEFT)
+
+        frameSample = tk.Frame(frameTop, height=300, width=500)
+        frameSample.pack_propagate(False)
+        frameSample.pack(side=LEFT, padx=(10, 0))
+
+        frameBottom = tk.Frame(tab1, relief=RAISED, bd=1, height=5)
+        frameBottom.pack(side=BOTTOM, fill=X, ipadx=10, ipady=10)
+
+        ########################################################################
+        # Sample terminal
+        ########################################################################
+
+        sampleTerminal = tk.Text(frameSample)
+        sampleTerminal.pack(expand=True, fill=BOTH)
+
+        ########################################################################
+        #
+        ########################################################################
+
+        fieldTexts = {}
+        isError = False
+
+        label_terminal = tk.Label(frameSettings, text="Terminal", font="Helvetica 16 bold")
+        label_cursor = tk.Label(frameSettings, text="Cursor", font="Helvetica 16 bold")
+        label_font = tk.Label(frameSettings, text="Font", font="Helvetica 16 bold")
+
+        label_cusor_shape = tk.Label(frameSettings, text="Cursor shape")
+
+        label_font_size = tk.Label(frameSettings, text="Font size")
+        label_font_family = tk.Label(frameSettings, text="Font family")
+
+        cursorShapeMappings = {
+            "Bar ( | )" : "bar",
+            "Block ( █ )" : "block"
+        }
+
+
+        fontSizeFieldText = IntVar()
+
+        frameFontSize = tk.Frame(frameSettings)
+        buttonFontSizeMinus = tk.Button(frameFontSize, text=" - ", relief=GROOVE, command= lambda:_change_font_size(mode="decrease")).pack(side=LEFT)
+        entry_font_size = tk.Entry(frameFontSize, textvariable=fontSizeFieldText, relief=FLAT, justify=CENTER, width=5).pack(side=LEFT, ipady=3)
+        buttonFontSizePlus = tk.Button(frameFontSize, text=" + ", relief=GROOVE, command= lambda:_change_font_size(mode="increase")).pack(side=LEFT)
+
+        label_terminal.grid(sticky="W", ipady=10, row=2)
+
+        _populate_color_fields(name="background", row=3)
+        _populate_color_fields(name="foreground", row=4)
+        _populate_color_fields(name="selectbackground", row=5)
+        _populate_color_fields(name="basename", row=6)
+        _populate_color_fields(name="output", row=7)
+        _populate_color_fields(name="error", row=8)
+
+        label_cursor.grid(sticky="W", ipady=10, row=9)
+        label_cusor_shape.grid(sticky="W", row=10, column=0)
+
+        cursorCombobox = ttk.Combobox(frameSettings, state="readonly", width=15, font=("Helvetica", 8))
+        cursorCombobox['values'] = list(cursorShapeMappings.keys())
+        cursorCombobox.bind("<<ComboboxSelected>>", _update_cursorShapeSelected)
+        cursorCombobox.grid(sticky="W", ipady=3, row=10, column=1)
+
+        label_font.grid(sticky="W", ipady=10, row=11)
+        label_font_size.grid(sticky="W", row=12, column=0)
+        frameFontSize.grid(sticky="W", row=12, column=1)
+
+        label_font_family.grid(sticky="W", row=13, column=0)
+
+        fontFamilyCombobox = ttk.Combobox(frameSettings, state="readonly", width=25)
+        fontFamilyCombobox["values"] = list(font.families())
+        fontFamilyCombobox.bind("<<ComboboxSelected>>", _update_FontFamilySelected)
+        fontFamilyCombobox.grid(sticky="W", ipady=3, row=13, column=1)
+
+        ttk.Button(frameBottom, style="Settings.TButton", text="Restore default", command=_do_restoreDefault).pack(side=LEFT, expand=True)
+
+        ttk.Button(frameBottom, style="Settings.TButton", text="OK", command=_do_ok).pack(side=LEFT)
+        ttk.Button(frameBottom, style="Settings.TButton", text="Apply", command=_do_apply).pack(side=LEFT)
+
+        ttk.Button(frameBottom, style="Settings.TButton", text="Save config", command=_do_saveConfig).pack(side=LEFT, expand=True)
+
+        s = ttk.Style()
+        s.map('Settings.TButton',
+            background=[('disabled','#d9d9d9'), ('active','#ececec')],
+            foreground=[('disabled','#a3a3a3')])
+
+
+        fontSizeFieldText.trace("w", lambda *args: _init_sample())
+
+
+        _init()
+        _init_sample()
+
+class Terminal(SearchFunctionality, App):
 
     """ Terminal widget """
 
@@ -874,32 +1214,38 @@ class Terminal(RightClickMenu, SearchFunctionality, App):
         old_stdout = sys.stdout
         old_stderr = sys.stderr
 
-        self.TerminalColors = {
-            "fg" : "#E6E6E6",
-            "bg" : "#282C34"
+        # Default terminal settings
+        self.DefaultTerminalColors = {
+            "fg"                : "#00A79D",
+            "bg"                : "#282C34",
+            "insertbackground"  : "white",
+            "error"             : "red",
+            "output"            : "#E6E6E6",
+            "basename"          : "#0080ff",
+            "cursorshape"       : "bar",
+            "selectbackground"  : "#464E5E",
+            "fontfamily"        : "Cascadia Code SemiLight",
+            "fontsize"          : 9
         }
 
-        from tkinter import font
-        from tkinter.font import Font
-
-        self.TerminalColors["fg"] = "#00A79D"
-
         if "Cascadia Code SemiLight" in font.families():
-            self.terminalFont = Font(family="Cascadia Code SemiLight", size=9)
+            self.DefaultTerminalColors["fontfamily"] = "Cascadia Code SemiLight"
         else:
-            self.terminalFont = Font(family="Consolas", size=9)
+            self.DefaultTerminalColors["fontfamily"] = "Consolas"
+
+        self.TerminalColors = self.DefaultTerminalColors.copy()
+
+        if os.path.isfile(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+
+                for k in data.keys():
+                    if k in self.TerminalColors.keys():
+                        self.TerminalColors[k] = data[k]
 
 
+        # Initialise super classes
         super().__init__(parent, *args, **kwargs)
-
-
-        self.menubar = Frame(self.frameMenu, bd=0)
-        self.menuFile = Button(self.menubar, text="File", bd=0)
-        self.menuFile.pack(side=LEFT)
-        # self.menubar.pack_propagate(0)
-        # self.menubar.pack(fill=X)
-
-
 
         parent.bind("<Configure>", self.on_resize)
 
@@ -909,24 +1255,9 @@ class Terminal(RightClickMenu, SearchFunctionality, App):
         self.set_basename(os.getcwd())
         self.print_basename()
 
-        normalFont = Font(font=self.terminalFont)
-        normalFont.configure(weight="normal")
-
-        boldFont = Font(font=self.terminalFont)
-        boldFont.configure(family="Cascadia Code SemiBold")
-        boldFont.configure(weight="bold")
-
-        self.TerminalScreen.tag_config("basename", foreground="red", font=boldFont)
-        self.TerminalScreen.tag_config("error", foreground="red")
-        self.TerminalScreen.tag_config("output", foreground="#E6E6E6")
-
-
-        self.show_menu = BooleanVar()
-        self.fullscreen = BooleanVar()
-        self.readonly = BooleanVar()
-
-        self.MenuBind()
         self.Search_init()
+        self.contextMenu = RightClickContextMenu(self)
+
 
 
 
