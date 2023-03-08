@@ -63,14 +63,23 @@ class Redirect():
             end_pos = self.TerminalScreen.index("insert")
             self.TerminalScreen.tag_add("error", start_pos, end_pos)
 
+            # Clear caret handling on invalid commands
+            if self.app.caretHandling:
+                self.app.set_basename(self.app.oldBasename, postfix="")
+                self.app.caretHandling = False
+
         # Normal output
-        elif not self.app.caretHandling:
+        else:
             # Basename
             # does not add a newline, so start_pos does not need -1
             if text.startswith(self.app.basename):
                 start_pos = get_last_line(self.TerminalScreen)
                 end_pos = str(start_pos).split('.')[0] + '.' + str(len(self.app.basename))
-                self.TerminalScreen.tag_add("basename", start_pos, end_pos)
+
+                if self.app.caretHandling:
+                    self.TerminalScreen.tag_add("command", start_pos, end_pos)
+                else:
+                    self.TerminalScreen.tag_add("basename", start_pos, end_pos)
 
             # Normal output - could be command or its output
             # needs start_pos - 1
@@ -205,7 +214,7 @@ class App(tk.Frame):
         self.scrollbar.bind('<MouseWheel>', self.rollWheel)
 
 
-        self.TerminalScreen.bind('<Control-c>',           self.do_cancel)
+        self.TerminalScreen.bind('<Control-c>', self.do_cancel)
         self.bind_keys()
 
         # Bind all other key press
@@ -214,7 +223,7 @@ class App(tk.Frame):
         self.pendingKeys = ""
 
         self.insertionIndex = self.TerminalScreen.index("end")
-        self.count = 0;
+        self.count = 0
 
         self.terminalThread = None
 
@@ -225,15 +234,22 @@ class App(tk.Frame):
             self.shellComboBox.set("bash")
 
 
-        self.processTerminated = False;
+        self.processTerminated = False
 
         # Caret handling and multiline commands
         self.multilineCommand = ""
         self.caretHandling = False
-        self.oldBasename = ""
+        self.oldBasename = self.basename
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
+
+    def reset(self):
+
+        # Caret handling and multiline commands
+        self.multilineCommand = ""
+        self.caretHandling = False
+        self.oldBasename = self.basename
 
     def set_color_style(self):
         """
@@ -444,9 +460,14 @@ class App(tk.Frame):
 
             # Clear multiline commands
             if self.multilineCommand != "":
-                self.set_basename(self.oldBasename, postfix="")
                 self.multilineCommand = ""
+
+            if self.caretHandling:
+                # Always clear caret handle
                 self.caretHandling = False
+
+                # Reset basename
+                self.set_basename(self.oldBasename, postfix="")
 
             # Clear commands
             self.insert_new_line()
@@ -654,7 +675,10 @@ class App(tk.Frame):
         """ On pressing Return, execute the command """
 
         # Caret character differs on Windows and Unix
-        CARET = "^" if (os.name == 'nt') else "\\"
+        if os.name == "nt":
+            CARET = "^"
+        else:
+            CARET = "\\"
 
         cmd = self.get_cmd()
 
@@ -698,28 +722,29 @@ class App(tk.Frame):
             self.commandIndex = -1
             self.commandHistory.insert(0, cmd)
 
-            # Merge all multiline command and update basename to whatever
-            # was previously
+            # Merge all multiline command and reset basename
             if self.multilineCommand != "":
-                self.set_basename(self.oldBasename, postfix="")
                 cmd = self.multilineCommand + cmd
                 self.multilineCommand = ""
+
+                self.set_basename(self.oldBasename, postfix="")
                 self.caretHandling = False
 
             if cmd == "clear" or cmd == "reset":
                 self.clear_screen()
+
             elif "cd" in cmd.split()[0]:
-                path = ''.join(cmd.split()[1:])
+                path = ' '.join(cmd.split()[1:])
                 path = os.path.abspath(path)
 
-                if os.path.exists(path):
+                if os.path.isdir(path):
                     os.chdir(path)
                     self.set_basename(path)
                     self.insert_new_line()
                     self.set_returnCode(0)
                 else:
                     self.insert_new_line()
-                    print("\"{}\": No such file or directory.".format(path))
+                    print("cd: no such file or directory: {}".format(path))
                     self.set_returnCode(1)
 
                 self.print_basename()
