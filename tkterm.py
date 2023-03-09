@@ -1107,7 +1107,7 @@ Third line ...
         #
         # Create new popup window
         #
-        self.setting_win_top = Toplevel(root)
+        self.setting_win_top = Toplevel(self.top.parent)
         self.setting_win_top.geometry("750x500")
         self.setting_win_top.resizable(False, False)
 
@@ -1275,7 +1275,8 @@ class Terminal(SearchFunctionality, App):
         # Initialise super classes
         super().__init__(parent, *args, **kwargs)
 
-        parent.bind("<Configure>", self.on_resize)
+        self.parent = parent
+        self.parent.bind("<Configure>", self.on_resize)
 
         sys.stdout = Redirect(self, stream="stdout")
         sys.stderr = Redirect(self, stream="stderr")
@@ -1301,7 +1302,9 @@ class Terminal(SearchFunctionality, App):
 
         # self.statusText.set(self.TerminalScreen.winfo_height())
 
-def main():
+
+if __name__ == "__main__":
+
     root = tk.Tk()
     root.title("TkTerm - Terminal Emulator")
     root.geometry("700x400")
@@ -1316,7 +1319,3 @@ def main():
     root.iconphoto(False, photo)
 
     root.mainloop()
-
-if __name__ == "__main__":
-
-    main()
