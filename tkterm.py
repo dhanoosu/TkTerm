@@ -15,6 +15,9 @@ import subprocess
 import time
 import json
 
+# Add to system path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from utils import *
 
 # Configuration filename
@@ -1298,9 +1301,7 @@ class Terminal(SearchFunctionality, App):
 
         # self.statusText.set(self.TerminalScreen.winfo_height())
 
-
-if __name__ == "__main__":
-
+def main():
     root = tk.Tk()
     root.title("TkTerm - Terminal Emulator")
     root.geometry("700x400")
@@ -1315,3 +1316,7 @@ if __name__ == "__main__":
     root.iconphoto(False, photo)
 
     root.mainloop()
+
+if __name__ == "__main__":
+
+    main()

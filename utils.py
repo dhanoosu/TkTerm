@@ -5,6 +5,9 @@ import os
 
 from tooltip import Tooltip
 
+def get_absolute_path(*args):
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
+
 class SearchFunctionality:
 
     def Search_init(self):
@@ -16,11 +19,11 @@ class SearchFunctionality:
         self.foundList = []
         self.search_reset_attributes()
 
-        self.click_close= PhotoImage(file=os.path.join("img", 'close.png'))
-        self.click_next= PhotoImage(file=os.path.join("img", 'next.png'))
-        self.click_prev= PhotoImage(file=os.path.join("img", 'prev.png'))
-        self.click_regex= PhotoImage(file=os.path.join("img", 'regex.png'))
-        self.click_case= PhotoImage(file=os.path.join("img", 'case.png'))
+        self.click_close    = PhotoImage(file=get_absolute_path("img", 'close.png'))
+        self.click_next     = PhotoImage(file=get_absolute_path("img", 'next.png'))
+        self.click_prev     = PhotoImage(file=get_absolute_path("img", 'prev.png'))
+        self.click_regex    = PhotoImage(file=get_absolute_path("img", 'regex.png'))
+        self.click_case     = PhotoImage(file=get_absolute_path("img", 'case.png'))
 
 
     def search_reset_attributes(self):
