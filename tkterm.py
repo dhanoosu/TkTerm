@@ -9,6 +9,7 @@ from tkinter import font
 from tkinter.font import Font
 
 import threading
+import io
 import os
 import sys
 import subprocess
@@ -20,8 +21,16 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils import *
 
+from backend.InterpreterShell import InterpreterShell
+
 # Configuration filename
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "tkterm_settings.json")
+
+# List of interpreters
+INTERPRETER_BACKENDS = {}
+
+# Current interpreter
+INTERPRETER = None
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
@@ -153,7 +162,6 @@ class App(tk.Frame):
 
 
         self.shellMapping = {
-            "csh" : "/bin/csh",
             "bash" : "/bin/sh",
             "windows" : None
         }
@@ -188,6 +196,9 @@ class App(tk.Frame):
         self.shellComboBox = ttk.Combobox(self.frameStatusBar, style="Shell.TCombobox", state="readonly", width=8, font=("Helvetica", 8))
         self.shellComboBox.pack(side=RIGHT, padx=0)
         self.shellComboBox['values'] = list(self.shellMapping)
+
+        # Initialise interpreter backends
+        self.init_interpreter()
 
         self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
 
@@ -437,27 +448,29 @@ class App(tk.Frame):
             self.processTerminated = True
             print("^C")
 
-            if (os.name == 'nt'):
-                process = subprocess.Popen(
-                    "TASKKILL /F /PID {} /T".format(self.terminalThread.process.pid),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    universal_newlines=True
-                )
-                for line in process.stdout:
-                    print(line, end='')
-                for line in process.stderr:
-                    print(line, file=sys.stderr, end='')
+            INTERPRETER.terminate(self.terminalThread.process)
 
-            else:
+            # if (os.name == 'nt'):
+            #     process = subprocess.Popen(
+            #         "TASKKILL /F /PID {} /T".format(self.terminalThread.process.pid),
+            #         stdout=subprocess.PIPE,
+            #         stderr=subprocess.PIPE,
+            #         universal_newlines=True
+            #     )
+            #     for line in process.stdout:
+            #         print(line, end='')
+            #     for line in process.stderr:
+            #         print(line, file=sys.stderr, end='')
 
-                os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
+            # else:
 
-                self.terminalThread.process.kill()
-                self.terminalThread.process.terminate()
-                # os.kill(self.terminalThread.process.pid, signal.SIGTERM)
+            #     os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
 
-                self.terminalThread.process.wait()
+            #     self.terminalThread.process.kill()
+            #     self.terminalThread.process.terminate()
+            #     # os.kill(self.terminalThread.process.pid, signal.SIGTERM)
+
+            #     self.terminalThread.process.wait()
 
         else:
 
@@ -511,23 +524,32 @@ class App(tk.Frame):
             shellSelected = self.outer_instance.shellComboBox.get()
             process_options['executable'] = self.shellMapping[shellSelected]
 
+            # Set current interpreter based on shell selected
+            self.outer_instance.set_current_interpreter(shellSelected)
+
             if self.cmd != "":
 
-                with subprocess.Popen(self.cmd, **process_options) as self.process:
+                # with subprocess.Popen(self.cmd, **process_options) as self.process:
+                with INTERPRETER.execute(self.cmd) as self.process:
 
-                    for line in self.process.stdout:
+                    if hasattr(self.process, "stdout") and hasattr(self.process, "stderr"):
+                        for line in self.process.stdout:
 
-                        if self.outer_instance.processTerminated:
-                            break
+                            # if self.outer_instance.processTerminated:
+                            #     break
 
-                        print(line, end='')
+                            print(line, end='')
 
-                    for line in self.process.stderr:
-                        print(line, file=sys.stderr, end='')
+                        for line in self.process.stderr:
+                            print(line, file=sys.stderr, end='')
+
+                    pass
 
 
-                rc = self.process.poll()
-                self.returnCode = rc
+                # rc = self.process.poll()
+                # self.returnCode = rc
+
+                self.returnCode = INTERPRETER.getReturnCode(self.process)
 
             # Always print basename on a newline
             insert_pos = self.outer_instance.TerminalScreen.index("insert")
@@ -1287,8 +1309,32 @@ class Terminal(SearchFunctionality, App):
         self.Search_init()
         self.contextMenu = RightClickContextMenu(self)
 
+    def set_current_interpreter(self, name):
+        """ Set current interpreter based on shell selected """
 
+        global INTERPRETER
+        INTERPRETER = INTERPRETER_BACKENDS[name]
 
+    def add_interpreter(self, name, interpreter, set_default=True):
+        """ Add a new interpreter and optionally set as default """
+
+        self.shellMapping[name] = None
+        self.shellComboBox['values'] = list(self.shellMapping)
+
+        if set_default:
+            self.shellComboBox.set(name)
+
+        global INTERPRETER_BACKENDS
+        INTERPRETER_BACKENDS[name] = interpreter
+
+    def init_interpreter(self):
+        """ Initialise interpreter backends """
+
+        global INTERPRETER_BACKENDS
+        INTERPRETER_BACKENDS.clear()
+
+        for name in self.shellComboBox['values']:
+            INTERPRETER_BACKENDS[name] = InterpreterShell(self.shellMapping[name])
 
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
