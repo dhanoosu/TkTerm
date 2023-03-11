@@ -1259,7 +1259,7 @@ class Terminal(SearchFunctionality, App):
 
     """ Terminal widget """
 
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, text=None, *args, **kwargs):
 
         old_stdout = sys.stdout
         old_stderr = sys.stderr
@@ -1302,6 +1302,9 @@ class Terminal(SearchFunctionality, App):
 
         sys.stdout = Redirect(self, stream="stdout")
         sys.stderr = Redirect(self, stream="stderr")
+
+        if text:
+            print(text)
 
         self.set_basename(os.getcwd())
         self.print_basename()
