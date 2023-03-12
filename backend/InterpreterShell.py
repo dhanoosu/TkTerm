@@ -1,11 +1,12 @@
 from .InterpreterInterface import InterpreterInterface
 
 import os
+import sys
 import subprocess
 
 class InterpreterShell(InterpreterInterface):
 
-    def __init__(self, interpreter_path):
+    def __init__(self, interpreter_path=None):
         super().__init__()
 
         self.process_options = {
@@ -20,7 +21,8 @@ class InterpreterShell(InterpreterInterface):
         if os.name != "nt":
             self.process_options["errors"] = "ignore"
 
-        self.process_options['executable'] = interpreter_path
+        if interpreter_path:
+            self.process_options['executable'] = interpreter_path
 
     def execute(self, command):
         return subprocess.Popen(command, **self.process_options)
@@ -43,5 +45,8 @@ class InterpreterShell(InterpreterInterface):
         else:
             os.system("pkill -TERM -P %s" % processThread.pid)
 
-    def getReturnCode(self, process):
+    def get_return_code(self, process):
         return process.poll()
+
+    def get_prompt(self):
+        return os.getcwd() + ">> "

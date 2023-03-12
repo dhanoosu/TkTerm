@@ -20,17 +20,10 @@ import json
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils import *
-
 from backend.InterpreterShell import InterpreterShell
 
 # Configuration filename
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "tkterm_settings.json")
-
-# List of interpreters
-INTERPRETER_BACKENDS = {}
-
-# Current interpreter
-INTERPRETER = None
 
 def get_last_line(widget):
     """ Get the position of the last line from Text Widget"""
@@ -57,7 +50,7 @@ class Redirect():
         # Work out if the current line is a command or output
         start_pos = get_last_line(self.TerminalScreen)
         line = self.TerminalScreen.get(start_pos, END)
-        isCmd = True if line.startswith(self.app.basename) else False
+        isCmd = True if line.startswith(self.app.get_last_basename()) else False
 
         self.TerminalScreen.insert("end", text)
 
@@ -77,16 +70,19 @@ class Redirect():
 
             # Clear caret handling on invalid commands
             if self.app.caretHandling:
-                self.app.set_basename(self.app.oldBasename, postfix="")
                 self.app.caretHandling = False
 
         # Normal output
         else:
             # Basename
-            # does not add a newline, so start_pos does not need -1
-            if text.startswith(self.app.basename):
-                start_pos = get_last_line(self.TerminalScreen)
-                end_pos = str(start_pos).split('.')[0] + '.' + str(len(self.app.basename))
+            if text.startswith(self.app.get_basename()):
+
+                # Handle custom basename that contains newlines characters
+                last_line_pos = get_last_line(self.TerminalScreen)
+
+                # Start position needs to minus the number of newline characters found
+                start_pos = last_line_pos - text.count("\n")
+                end_pos = str(last_line_pos).split('.')[0] + '.' + str(len(self.app.get_last_basename()))
 
                 if self.app.caretHandling:
                     self.TerminalScreen.tag_add("command", start_pos, end_pos)
@@ -253,7 +249,6 @@ class App(tk.Frame):
         # Caret handling and multiline commands
         self.multilineCommand = ""
         self.caretHandling = False
-        self.oldBasename = self.basename
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
@@ -263,7 +258,6 @@ class App(tk.Frame):
         # Caret handling and multiline commands
         self.multilineCommand = ""
         self.caretHandling = False
-        self.oldBasename = self.basename
 
     def set_color_style(self):
         """
@@ -434,8 +428,14 @@ class App(tk.Frame):
         return "break"
 
     def update_shell(self, *args):
+        self.set_current_interpreter(self.shellComboBox.get())
         self.shellComboBox.selection_clear()
         self.TerminalScreen.focus()
+
+        # When new shell is selected from the list we want to add new line
+        # and print basename in case the prompt changes
+        self.insert_new_line()
+        self.print_basename()
 
     def do_cancel(self, *args):
 
@@ -448,7 +448,7 @@ class App(tk.Frame):
             self.processTerminated = True
             print("^C")
 
-            INTERPRETER.terminate(self.terminalThread.process)
+            self.INTERPRETER.terminate(self.terminalThread.process)
 
             # if (os.name == 'nt'):
             #     process = subprocess.Popen(
@@ -481,9 +481,6 @@ class App(tk.Frame):
             if self.caretHandling:
                 # Always clear caret handle
                 self.caretHandling = False
-
-                # Reset basename
-                self.set_basename(self.oldBasename, postfix="")
 
             # Clear commands
             self.insert_new_line()
@@ -530,7 +527,7 @@ class App(tk.Frame):
             if self.cmd != "":
 
                 # with subprocess.Popen(self.cmd, **process_options) as self.process:
-                with INTERPRETER.execute(self.cmd) as self.process:
+                with self.outer_instance.INTERPRETER.execute(self.cmd) as self.process:
 
                     if hasattr(self.process, "stdout") and hasattr(self.process, "stderr"):
                         for line in self.process.stdout:
@@ -549,7 +546,7 @@ class App(tk.Frame):
                 # rc = self.process.poll()
                 # self.returnCode = rc
 
-                self.returnCode = INTERPRETER.getReturnCode(self.process)
+                self.returnCode = self.outer_instance.INTERPRETER.get_return_code(self.process)
 
             # Always print basename on a newline
             insert_pos = self.outer_instance.TerminalScreen.index("insert")
@@ -561,21 +558,35 @@ class App(tk.Frame):
 
     def clear_screen(self):
         """ Clear screen and print basename """
+
         self.TerminalScreen.delete("1.0", END)
         self.print_basename()
 
     def print_basename(self):
         """ Print basename on Terminal """
-        print(self.basename, end='')
+
+        print(self.get_basename(), end='')
         print(self.pendingKeys, end='')
         self.pendingKeys = ""
 
-    def set_basename(self, text, postfix=">>"):
+    def get_basename(self):
+        """ Get full basename comtaining newline characters """
 
-        if text.endswith(" "):
-            text = text.rstrip()
+        if self.caretHandling:
+            return "> "
+        else:
+            return self.INTERPRETER.get_prompt()
 
-        self.basename = text + postfix + " "
+    def get_last_basename(self):
+        """ Get the basename after the last newline character """
+
+        basename = self.get_basename()
+
+        if "\n" in basename:
+            return basename.split("\n")[-1]
+
+        return basename
+
 
     def do_keyHome(self, *args):
         """ Press HOME to return to the start position of command """
@@ -590,7 +601,7 @@ class App(tk.Frame):
 
         pos = get_last_line(self.TerminalScreen)
         pos_integral = str(pos).split('.')[0]
-        offset = '.' + str(len(self.basename))
+        offset = '.' + str(len(self.get_last_basename()))
         new_pos = pos_integral + offset
 
         return new_pos
@@ -726,13 +737,9 @@ class App(tk.Frame):
             # Construct multiline command
             self.multilineCommand += cmd.rstrip(CARET)
 
-            # Store old basename only once at the start of caret handling
+            # Set caret handling
             if not self.caretHandling:
-                self.oldBasename = self.basename
                 self.caretHandling = True
-
-            # Update basename and store command as multiline command
-            self.set_basename(">", postfix="")
 
             self.insert_new_line()
             self.print_basename()
@@ -747,12 +754,11 @@ class App(tk.Frame):
             self.commandIndex = -1
             self.commandHistory.insert(0, cmd)
 
-            # Merge all multiline command and reset basename
+            # Merge all multiline command and disable caret handling
             if self.multilineCommand != "":
                 cmd = self.multilineCommand + cmd
                 self.multilineCommand = ""
 
-                self.set_basename(self.oldBasename, postfix="")
                 self.caretHandling = False
 
             if cmd == "clear" or cmd == "reset":
@@ -760,16 +766,17 @@ class App(tk.Frame):
 
             elif "cd" in cmd.split()[0]:
                 path = ' '.join(cmd.split()[1:])
-                path = os.path.abspath(path)
+                path = os.path.expanduser(path)
 
                 if os.path.isdir(path):
                     os.chdir(path)
-                    self.set_basename(path)
+
+                    # Insert new line
                     self.insert_new_line()
                     self.set_returnCode(0)
                 else:
                     self.insert_new_line()
-                    print("cd: no such file or directory: {}".format(path))
+                    print("cd: no such file or directory: {}".format(path), file=sys.stderr)
                     self.set_returnCode(1)
 
                 self.print_basename()
@@ -791,7 +798,7 @@ class App(tk.Frame):
 
         index = self.TerminalScreen.index("insert-1c")
 
-        if int(str(index).split('.')[1]) >= len(self.basename):
+        if int(str(index).split('.')[1]) >= len(self.get_last_basename()):
             self.TerminalScreen.delete(index)
 
         return "break"
@@ -801,7 +808,7 @@ class App(tk.Frame):
 
         index = self.TerminalScreen.index("insert-1c")
 
-        if int(str(index).split('.')[1]) < len(self.basename):
+        if int(str(index).split('.')[1]) < len(self.get_last_basename()):
             return "break"
 
     def do_keyUpArrow(self, *args):
@@ -896,19 +903,20 @@ class RightClickContextMenu:
     def bind_menu(self):
         self.menu = tk.Menu(self.top,
             tearoff = 0,
-            # bg="#1D1F23",
-            bg="white",
-            # fg="white",
+            bg="#1D1F23",
+            # bg="white",
+            fg="white",
             borderwidth=0,
-            relief="solid",
+            bd=0,
+            relief=RAISED,
             activebackground="grey",
             selectcolor="red",
             activeborderwidth=0
         )
 
-        self.menu.add_command(label ="Copy")
-        self.menu.add_command(label ="Paste")
-        self.menu.add_command(label ="Reload")
+        self.menu.add_command(label ="Copy", command=self._copyClipboard)
+        self.menu.add_command(label ="Paste", command=self._pasteClipboard)
+        self.menu.add_command(label ="Reload", command=self._reloadScreen)
         self.menu.add_separator()
         self.menu.add_command(label="Settings...", command=self._showSettings)
 
@@ -926,6 +934,25 @@ class RightClickContextMenu:
             self.menu.focus_set()
         finally:
             self.menu.grab_release()
+
+    def _copyClipboard(self):
+
+        try:
+            selected = self.top.TerminalScreen.selection_get()
+        except Exception as e:
+            selected = ""
+
+        self.top.parent.clipboard_clear()
+        self.top.parent.clipboard_append(selected)
+
+    def _pasteClipboard(self):
+        data = self.top.parent.clipboard_get()
+
+        current_pos = self.top.TerminalScreen.index(INSERT)
+        self.top.TerminalScreen.insert(current_pos, data)
+
+    def _reloadScreen(self):
+        self.top.clear_screen()
 
     def _showSettings(self):
 
@@ -1259,10 +1286,16 @@ class Terminal(SearchFunctionality, App):
 
     """ Terminal widget """
 
-    def __init__(self, parent, text=None, *args, **kwargs):
+    def __init__(self, parent, text=None, init=True, *args, **kwargs):
 
         old_stdout = sys.stdout
         old_stderr = sys.stderr
+
+        # Current interpreter
+        self.INTERPRETER = InterpreterShell(None)
+
+        # List of interpreter backends
+        self.INTERPRETER_BACKENDS = {}
 
         # Default terminal settings
         self.DefaultTerminalColors = {
@@ -1303,11 +1336,13 @@ class Terminal(SearchFunctionality, App):
         sys.stdout = Redirect(self, stream="stdout")
         sys.stderr = Redirect(self, stream="stderr")
 
+        # Print some text before the main initialisation
         if text:
             print(text)
 
-        self.set_basename(os.getcwd())
-        self.print_basename()
+        # Initialisation - print the basename
+        if init:
+            self.print_basename()
 
         self.Search_init()
         self.contextMenu = RightClickContextMenu(self)
@@ -1315,8 +1350,7 @@ class Terminal(SearchFunctionality, App):
     def set_current_interpreter(self, name):
         """ Set current interpreter based on shell selected """
 
-        global INTERPRETER
-        INTERPRETER = INTERPRETER_BACKENDS[name]
+        self.INTERPRETER = self.INTERPRETER_BACKENDS[name]
 
     def add_interpreter(self, name, interpreter, set_default=True):
         """ Add a new interpreter and optionally set as default """
@@ -1324,20 +1358,19 @@ class Terminal(SearchFunctionality, App):
         self.shellMapping[name] = None
         self.shellComboBox['values'] = list(self.shellMapping)
 
+        self.INTERPRETER_BACKENDS[name] = interpreter
+
         if set_default:
             self.shellComboBox.set(name)
-
-        global INTERPRETER_BACKENDS
-        INTERPRETER_BACKENDS[name] = interpreter
+            self.update_shell()
 
     def init_interpreter(self):
         """ Initialise interpreter backends """
 
-        global INTERPRETER_BACKENDS
-        INTERPRETER_BACKENDS.clear()
+        self.INTERPRETER_BACKENDS.clear()
 
         for name in self.shellComboBox['values']:
-            INTERPRETER_BACKENDS[name] = InterpreterShell(self.shellMapping[name])
+            self.INTERPRETER_BACKENDS[name] = InterpreterShell(self.shellMapping[name])
 
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
