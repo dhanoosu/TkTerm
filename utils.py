@@ -39,7 +39,7 @@ class SearchFunctionality:
 
     def searchbar_function(self, event):
 
-        search_config = {
+        self.search_config = {
             "bd"        : 0,
             "fg"        : "white",
             "bg"        : "#21252B",
@@ -63,7 +63,7 @@ class SearchFunctionality:
                 bg="#1d1f23",
                 insertbackground="white",
                 relief=FLAT,
-                highlightbackground="black",
+                highlightbackground="#1d1f23",
                 font=("Helvetica", 8)
             )
             self.searchField.bind("<Return>",       lambda event: self.do_search_next_or_prev(isNext=True))
@@ -103,14 +103,14 @@ class SearchFunctionality:
             self.searchRegexButton.pack(side=LEFT, fill=Y, pady=5)
             Tooltip(self.searchRegexButton, text="Use Regular Expression", delay=1)
 
-            self.searchResult   = Label(self.frameSearchBar, textvariable=self.searchResultText, width=8, anchor=W, **search_config)
+            self.searchResult   = Label(self.frameSearchBar, textvariable=self.searchResultText, width=8, anchor=W, **self.search_config)
             self.searchResult.pack(side=LEFT, padx=(5), fill=Y)
 
-            self.searchPrev     = Button(self.frameSearchBar, cursor="hand2", image=self.click_prev, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(False), **search_config)
+            self.searchPrev     = Button(self.frameSearchBar, cursor="hand2", image=self.click_prev, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(False), **self.search_config)
             self.searchPrev.pack(side=LEFT, padx=(2), fill=Y)
             Tooltip(self.searchPrev, text="Previous Match (Shift+Enter)", delay=1)
 
-            self.searchNext     = Button(self.frameSearchBar, cursor="hand2", image=self.click_next, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(True), **search_config)
+            self.searchNext     = Button(self.frameSearchBar, cursor="hand2", image=self.click_next, width=30, highlightbackground= "#21252B", command= lambda: self.do_search_next_or_prev(True), **self.search_config)
             self.searchNext.pack(side=LEFT, padx=(2), fill=Y)
             Tooltip(self.searchNext, text="Next Match (Enter)", delay=1)
 
@@ -121,9 +121,20 @@ class SearchFunctionality:
                 highlightbackground="#21252B",
                 width=30,
                 command=self.close_search,
-                **search_config
+                **self.search_config
             )
+
             self.searchClose.pack(side=LEFT, padx=(2), fill=Y)
+
+            ## Create extra binding event on top of what Tooltip had (add="+")
+            self.searchPrev.bind("<Enter>", self.on_enter, add="+")
+            self.searchPrev.bind("<Leave>", self.on_leave, add="+")
+
+            self.searchNext.bind("<Enter>", self.on_enter, add="+")
+            self.searchNext.bind("<Leave>", self.on_leave, add="+")
+
+            self.searchClose.bind("<Enter>", self.on_enter, add="+")
+            self.searchClose.bind("<Leave>", self.on_leave, add="+")
 
             self.frameSearchBar.place(rely=0, relx=1.0, x=2, y=14, anchor="e")
             self.searchField.focus_set()
@@ -132,6 +143,15 @@ class SearchFunctionality:
         ## Destroy searchbar frame
         else:
             self.close_search()
+
+    def on_enter(self, e):
+        e.widget["bg"] = "black"
+
+        # Set activebackground
+        e.widget["activebackground"] = "black"
+
+    def on_leave(self, e):
+        e.widget["bg"] = self.search_config["bg"]
 
     def close_search(self, *args):
 
