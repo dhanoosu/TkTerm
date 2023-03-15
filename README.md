@@ -5,11 +5,12 @@ A fully functional terminal emulator built on Tkinter library - perform all basi
 <img src="img/snapshot1.png">
 </p>
 
-Under the hood it executes commands using Python's *subprocess* module and spawn as a thread. Pressing `Ctrl-C`will terminate current running command. Supports Unix shells (`bash` and `C-Shell`) and Window's Command Prompt (`cmd.exe`) commands. 
+Under the hood it executes commands using Python's *subprocess* module and spawn as a thread. Pressing `Ctrl-C` will terminate current running command. Supports Unix shells (`sh` and `bash`) and Window's Command Prompt (`cmd.exe`) commands.
 
 ## Features
 - Compatible with Windows and Unix systems
 - Return Code (RC) of previous run commands is shown at the bottom status bar
+- Settings to customise colours, font and cursor shape
 - **Ctrl-C** to kill current running process
 - **Ctrl-F** to search; supports case sensitivity and regex searches
 - **UP** and **DOWN** arrow keys to cycle between next and previous commands in history

@@ -162,8 +162,9 @@ class App(tk.Frame):
 
 
         self.shellMapping = {
-            "bash" : "/bin/sh",
-            "windows" : None
+            "sh"        : "/bin/bash",
+            "bash"      : "/bin/bash",
+            "windows"   : None
         }
 
         ########################################################################
