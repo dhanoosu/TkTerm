@@ -43,7 +43,13 @@ class InterpreterShell(InterpreterInterface):
                 print(line, file=sys.stderr, end='')
 
         else:
-            os.system("pkill -TERM -P %s" % processThread.pid)
+
+            try:
+                os.system("pkill -TERM -P %s" % processThread.pid)
+                os.system("kill -2 {}".format(processThread.pid))
+                os.system("kill -9 {}".format(processThread.pid))
+            except:
+                pass
 
     def get_return_code(self, process):
         return process.poll()
