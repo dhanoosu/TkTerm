@@ -757,6 +757,7 @@ class App(tk.Frame):
             CARET = "\\"
 
         cmd = self.get_cmd()
+        cmd = cmd.strip()
 
         # Empty command - pass
         if cmd == "":
