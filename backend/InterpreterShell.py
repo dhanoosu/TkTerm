@@ -9,6 +9,8 @@ class InterpreterShell(InterpreterInterface):
     def __init__(self, interpreter_path=None):
         super().__init__()
 
+        self.history = []
+
         self.process_options = {
             "shell"                 : True,
             "stdout"                : subprocess.PIPE,
@@ -56,3 +58,6 @@ class InterpreterShell(InterpreterInterface):
 
     def get_prompt(self):
         return os.getcwd() + ">> "
+
+    def get_history(self):
+        return self.history

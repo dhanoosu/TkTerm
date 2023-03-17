@@ -1392,6 +1392,9 @@ class Terminal(SearchFunctionality, App):
 
         self.INTERPRETER = self.INTERPRETER_BACKENDS[name]
 
+        # Update history storage binding
+        self.commandHistory = self.INTERPRETER.get_history()
+
     def add_interpreter(self, name, interpreter, set_default=True):
         """ Add a new interpreter and optionally set as default """
 
