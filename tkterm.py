@@ -375,10 +375,11 @@ class App(tk.Frame):
             if self.scrollTimer <= 12:
                 self.after(100, self._scrollbar_animation)
             else:
+                self.style.configure("Terminal.Vertical.TScrollbar", arrowsize=10)
                 self.style.map('Terminal.Vertical.TScrollbar',
                     background=[('active', "#9DA5B4"), ('pressed', "#9DA5B4"), ('disabled', self.TerminalColors["bg"])]
                 )
-                self.style.configure("Terminal.Vertical.TScrollbar", arrowsize=10)
+                self.style.configure("Terminal.Vertical.TScrollbar", background="#9DA5B4")
 
         else:
             self.scrollTimer -= 1
@@ -391,6 +392,7 @@ class App(tk.Frame):
                 self.style.map('Terminal.Vertical.TScrollbar',
                     background=[('active', "#3A3E48"), ('disabled', self.TerminalColors["bg"])]
                 )
+                self.style.configure("Terminal.Vertical.TScrollbar", background="#3A3E48")
 
     def bind_keys(self):
         self.TerminalScreen.bind("<Return>",            self.do_keyReturn)
