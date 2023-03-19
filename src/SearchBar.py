@@ -3,30 +3,36 @@ from tkinter import *
 from tkinter import ttk
 import os
 
-from tooltip import Tooltip
+from .Tooltip import Tooltip
 
 def get_absolute_path(*args):
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
 
-class SearchFunctionality:
+class SearchBar():
 
-    def Search_init(self):
+    def __init__(self, parent):
+        self.TerminalScreen = parent
+        self.init()
 
-        ## Bind to Ctrl-f
-        self.TerminalScreen.bind('<Control-f>', self.searchbar_function)
-        self.TerminalScreen.bind('<Escape>', self.close_search)
+    def init(self):
+
+        ## Bind keys
+        self.TerminalScreen.bind('<Control-f>', self.open_searchbar)
+        self.TerminalScreen.bind('<Escape>', self.close_searchbar)
 
         self.foundList = []
-        self.search_reset_attributes()
+        self._reset()
 
-        self.click_close    = PhotoImage(file=get_absolute_path("img", 'close.png'))
-        self.click_next     = PhotoImage(file=get_absolute_path("img", 'next.png'))
-        self.click_prev     = PhotoImage(file=get_absolute_path("img", 'prev.png'))
-        self.click_regex    = PhotoImage(file=get_absolute_path("img", 'regex.png'))
-        self.click_case     = PhotoImage(file=get_absolute_path("img", 'case.png'))
+        self.click_close    = PhotoImage(file=get_absolute_path("../img", 'close.png'))
+        self.click_next     = PhotoImage(file=get_absolute_path("../img", 'next.png'))
+        self.click_prev     = PhotoImage(file=get_absolute_path("../img", 'prev.png'))
+        self.click_regex    = PhotoImage(file=get_absolute_path("../img", 'regex.png'))
+        self.click_case     = PhotoImage(file=get_absolute_path("../img", 'case.png'))
 
 
-    def search_reset_attributes(self):
+    def _reset(self):
+        """ Reset attributes """
+
         self.searchIsOpen = False
         self.searchCaseSensitive = False
         self.searchRegex = False
@@ -37,7 +43,7 @@ class SearchFunctionality:
         self.frameSearchBar = None
         self.searchRegexTooltip = None
 
-    def searchbar_function(self, event):
+    def open_searchbar(self, event):
 
         self.search_config = {
             "bd"        : 0,
@@ -47,12 +53,10 @@ class SearchFunctionality:
             "font"      : ("Helvetica", 8)
         }
 
-        ## Create searchbar frame
         if not self.searchIsOpen:
-            # create an info window in the bottom right corner and
-            # inset a couple of pixels
+
+            ## Create searchbar frame
             self.frameSearchBar = tk.Frame(self.TerminalScreen, width=20, height=50, borderwidth=0, bg="#21252B", relief=FLAT)
-            # self.frameSearchBar = CreateRoundedFrame(self.TerminalScreen)
 
             self.searchFieldText = StringVar()
 
@@ -66,15 +70,15 @@ class SearchFunctionality:
                 highlightbackground="#1d1f23",
                 font=("Helvetica", 8)
             )
-            self.searchField.bind("<Return>",       lambda event: self.do_search_next_or_prev(isNext=True))
-            self.searchField.bind("<Shift-Return>", lambda event: self.do_search_next_or_prev(isNext=False))
-            self.searchField.bind('<Escape>',       self.close_search)
-
-
-            self.searchFieldText.trace("w", self.do_search)
-
 
             self.searchField.pack(side=LEFT, padx=(5,0), pady=(5))
+
+            # Bind keys
+            self.searchField.bind("<Return>",       lambda event: self.do_search_next_or_prev(isNext=True))
+            self.searchField.bind("<Shift-Return>", lambda event: self.do_search_next_or_prev(isNext=False))
+            self.searchField.bind('<Escape>',       self.close_searchbar)
+
+            self.searchFieldText.trace("w", self.do_search)
 
             self.searchResultText = StringVar()
             self.searchResultText.set("No results")
@@ -120,7 +124,7 @@ class SearchFunctionality:
                 image=self.click_close,
                 highlightbackground="#21252B",
                 width=30,
-                command=self.close_search,
+                command=self.close_searchbar,
                 **self.search_config
             )
 
@@ -142,7 +146,7 @@ class SearchFunctionality:
 
         ## Destroy searchbar frame
         else:
-            self.close_search()
+            self.close_searchbar()
 
     def on_enter(self, e):
         e.widget["bg"] = "black"
@@ -153,7 +157,7 @@ class SearchFunctionality:
     def on_leave(self, e):
         e.widget["bg"] = self.search_config["bg"]
 
-    def close_search(self, *args):
+    def close_searchbar(self, *args):
 
         if self.frameSearchBar:
 
@@ -162,7 +166,7 @@ class SearchFunctionality:
 
             self.frameSearchBar.destroy()
 
-            self.search_reset_attributes()
+            self._reset()
 
             self.TerminalScreen.tag_remove("found", "1.0", END)
             self.TerminalScreen.tag_remove("found_selected", "1.0", END)
