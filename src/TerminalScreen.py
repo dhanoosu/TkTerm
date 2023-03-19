@@ -230,7 +230,7 @@ class App(tk.Frame):
 
         self.style.map('Shell.TCombobox', background=[('hover', "#2F333D")])
         self.style.map('Shell.TCombobox', fieldbackground=[('hover', "#2F333D")])
-        self.style.map('Shell.TCombobox', arrowcolor=[('readonly', '#21252B')])
+        self.style.map('Shell.TCombobox', arrowcolor=[('readonly', '#9DA5B4')])
 
         self.style.configure("Shell.TCombobox", fieldbackground="#21252B") # current field background
         self.style.configure("Shell.TCombobox", background="#21252B") # arrow box background
