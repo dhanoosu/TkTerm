@@ -31,6 +31,9 @@ class InterpreterShell(InterpreterInterface):
 
     def terminate(self, processThread):
 
+        stdout = ""
+        stderr = ""
+
         if (os.name == 'nt'):
             process = subprocess.Popen(
                 "TASKKILL /F /PID {} /T".format(processThread.pid),
@@ -40,9 +43,9 @@ class InterpreterShell(InterpreterInterface):
             )
 
             for line in process.stdout:
-                print(line, end='')
+                stdout += line
             for line in process.stderr:
-                print(line, file=sys.stderr, end='')
+                stderr += line
 
         else:
 
@@ -53,6 +56,10 @@ class InterpreterShell(InterpreterInterface):
             except:
                 pass
 
+        processThread.wait()
+
+        return (stdout, stderr)
+
     def get_return_code(self, process):
         return process.poll()
 
@@ -61,3 +68,6 @@ class InterpreterShell(InterpreterInterface):
 
     def get_history(self):
         return self.history
+
+    def __repr__(self):
+        return "<InterpreterShell object: {}>".format(self.process_options['executable'])

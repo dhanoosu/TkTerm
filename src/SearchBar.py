@@ -11,7 +11,8 @@ def get_absolute_path(*args):
 class SearchBar():
 
     def __init__(self, parent):
-        self.TerminalScreen = parent
+        self.TerminalScreen = parent.TerminalScreen
+        self.frameTerminal = parent.frameTerminal
         self.init()
 
     def init(self):
@@ -56,7 +57,7 @@ class SearchBar():
         if not self.searchIsOpen:
 
             ## Create searchbar frame
-            self.frameSearchBar = tk.Frame(self.TerminalScreen, width=20, height=50, borderwidth=0, bg="#21252B", relief=FLAT)
+            self.frameSearchBar = tk.Frame(self.frameTerminal, width=20, height=50, borderwidth=0, bg="#21252B", relief=FLAT)
 
             self.searchFieldText = StringVar()
 
@@ -140,7 +141,7 @@ class SearchBar():
             self.searchClose.bind("<Enter>", self.on_enter, add="+")
             self.searchClose.bind("<Leave>", self.on_leave, add="+")
 
-            self.frameSearchBar.place(rely=0, relx=1.0, x=2, y=14, anchor="e")
+            self.frameSearchBar.place(rely=0, relx=1.0, x=-14, y=14, anchor="e")
             self.searchField.focus_set()
             self.searchIsOpen = True
 

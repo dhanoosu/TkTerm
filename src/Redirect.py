@@ -14,7 +14,9 @@ class Redirect():
         self.autoscroll = autoscroll
         self.stream = stream
 
-    def write(self, text):
+    def write(self, text, end="\n"):
+
+        text = text + end
 
         # Keep line limit for Terminal to 5000 lines
         limit_diff = int(get_last_line(self.TerminalScreen)) - 5000

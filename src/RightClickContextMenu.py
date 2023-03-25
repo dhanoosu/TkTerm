@@ -8,20 +8,25 @@ from tkinter import colorchooser
 from tkinter import font
 from tkinter.font import Font
 
+import json
+
 from .Utils import *
+from .Config import TkTermConfig
+
 
 class RightClickContextMenu:
 
-    def __init__(self, top_level):
+    def __init__(self, top_level, terminal):
 
         self.top = top_level
+        self.terminal = terminal
 
         self.bind_menu()
 
         self.setting_win_top = False
 
     def bind_menu(self):
-        self.menu = tk.Menu(self.top,
+        self.menu = tk.Menu(self.terminal,
             tearoff=0,
             bg="#1D1F23",
             # bg="white",
@@ -41,7 +46,7 @@ class RightClickContextMenu:
         self.menu.add_separator()
         self.menu.add_command(label="Settings...", command=self._showSettings)
 
-        self.top.TerminalScreen.bind("<ButtonRelease-3>", self._popup)
+        self.terminal.TerminalScreen.bind("<ButtonRelease-3>", self._popup)
         self.menu.bind('<FocusOut>', self.on_focusout_popup)
 
     def on_focusout_popup(self, event=None):
@@ -59,7 +64,7 @@ class RightClickContextMenu:
     def _copyClipboard(self):
 
         try:
-            selected = self.top.TerminalScreen.selection_get()
+            selected = self.terminal.TerminalScreen.selection_get()
         except Exception as e:
             selected = ""
 
@@ -69,32 +74,33 @@ class RightClickContextMenu:
     def _pasteClipboard(self):
         data = self.top.parent.clipboard_get()
 
-        current_pos = self.top.TerminalScreen.index(INSERT)
-        self.top.TerminalScreen.insert(current_pos, data)
+        current_pos = self.terminal.TerminalScreen.index(INSERT)
+        self.terminal.TerminalScreen.insert(current_pos, data)
 
     def _reloadScreen(self):
-        self.top.clear_screen()
+        self.terminal.clear_screen()
 
     def _showSettings(self):
 
         def _init():
 
-            fieldTexts["background"].set(self.top.TerminalColors["bg"])
-            fieldTexts["foreground"].set(self.top.TerminalColors["fg"])
-            fieldTexts["basename"].set(self.top.TerminalColors["basename"])
-            fieldTexts["error"].set(self.top.TerminalColors["error"])
-            fieldTexts["output"].set(self.top.TerminalColors["output"])
-            fieldTexts["selectbackground"].set(self.top.TerminalColors["selectbackground"])
+            fieldTexts["background"].set(TkTermConfig.get_config("bg"))
+            fieldTexts["foreground"].set(TkTermConfig.get_config("fg"))
+            fieldTexts["basename"].set(TkTermConfig.get_config("basename"))
+            fieldTexts["error"].set(TkTermConfig.get_config("error"))
+            fieldTexts["output"].set(TkTermConfig.get_config("output"))
+            fieldTexts["selectbackground"].set(TkTermConfig.get_config("selectbackground"))
 
             mappings = dict(zip(cursorShapeMappings.values(), cursorShapeMappings.keys()))
-            cursorCombobox.set(mappings[self.top.TerminalColors["cursorshape"]])
+            cursorCombobox.set(mappings[TkTermConfig.get_config("cursorshape")])
 
-            fontFamilyCombobox.set(self.top.TerminalColors["fontfamily"])
-            fontSizeFieldText.set(self.top.TerminalColors["fontsize"])
+            fontFamilyCombobox.set(TkTermConfig.get_config("fontfamily"))
+            fontSizeFieldText.set(TkTermConfig.get_config("fontsize"))
 
         def _do_restoreDefault():
 
-            self.top.TerminalColors = self.top.DefaultTerminalColors.copy()
+            # self.top.TerminalColors = self.top.DefaultTerminalColors.copy()
+            TkTermConfig.set_config(TkTermConfig.get_default())
             _init()
 
         def _init_sample():
@@ -210,15 +216,15 @@ Third line ...
         def _do_apply():
 
             try:
-                self.top.TerminalColors["bg"]               = fieldTexts["background"].get()
-                self.top.TerminalColors["fg"]               = fieldTexts["foreground"].get()
-                self.top.TerminalColors["cursorshape"]      = cursorShapeMappings[cursorCombobox.get()]
-                self.top.TerminalColors["fontfamily"]       = fontFamilyCombobox.get()
-                self.top.TerminalColors["fontsize"]         = fontSizeFieldText.get()
-                self.top.TerminalColors["output"]           = fieldTexts["output"].get()
-                self.top.TerminalColors["error"]            = fieldTexts["error"].get()
-                self.top.TerminalColors["basename"]         = fieldTexts["basename"].get()
-                self.top.TerminalColors["selectbackground"] = fieldTexts["selectbackground"].get()
+                TkTermConfig.CONFIG["bg"]               = fieldTexts["background"].get()
+                TkTermConfig.CONFIG["fg"]               = fieldTexts["foreground"].get()
+                TkTermConfig.CONFIG["cursorshape"]      = cursorShapeMappings[cursorCombobox.get()]
+                TkTermConfig.CONFIG["fontfamily"]       = fontFamilyCombobox.get()
+                TkTermConfig.CONFIG["fontsize"]         = fontSizeFieldText.get()
+                TkTermConfig.CONFIG["output"]           = fieldTexts["output"].get()
+                TkTermConfig.CONFIG["error"]            = fieldTexts["error"].get()
+                TkTermConfig.CONFIG["basename"]         = fieldTexts["basename"].get()
+                TkTermConfig.CONFIG["selectbackground"] = fieldTexts["selectbackground"].get()
 
                 self.top.set_color_style()
 
@@ -240,10 +246,10 @@ Third line ...
             result = _do_apply()
 
             if result:
-                with open(CONFIG_FILE, "w") as f:
-                    f.write(json.dumps(self.top.TerminalColors, indent = 4))
+                with open(TkTermConfig.CONFIG_FILE, "w") as f:
+                    f.write(json.dumps(TkTermConfig.get_config(), indent = 4))
 
-                tkinter.messagebox.showinfo(title="Configuration saved", message="Successfully saved configuration to file.\n{}".format(CONFIG_FILE))
+                    tkinter.messagebox.showinfo(title="Configuration saved", message="Successfully saved configuration to file.\n{}".format(f.name))
 
             else:
                 self.setting_win_top.lift()
@@ -277,7 +283,7 @@ Third line ...
         #
         # Create new popup window
         #
-        self.setting_win_top = Toplevel(self.top.parent)
+        self.setting_win_top = Toplevel(self.top.winfo_toplevel())
         self.setting_win_top.geometry("750x500")
         self.setting_win_top.resizable(False, False)
 

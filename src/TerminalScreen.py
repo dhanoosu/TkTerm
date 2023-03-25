@@ -14,8 +14,17 @@ import subprocess
 
 from .Utils import *
 
+from .Config import TkTermConfig
+from .Interpreter import Interpreter
+from .Redirect import Redirect
+from backend.KThread import KThread
+
+import traceback
 
 class App(tk.Frame):
+
+    SHELL_MAPPINGS = Interpreter.MAPPINGS
+
     def __init__(self, parent, **kwargs):
         tk.Frame.__init__(self, parent, **kwargs)
 
@@ -25,6 +34,13 @@ class App(tk.Frame):
 
         # get the root after
         self.after = self.winfo_toplevel().after
+
+        self.currentInterpreter = None
+
+        self.TerminalColors = TkTermConfig.get_config()
+
+        self.caretHandling = False
+        self.pendingKeys = ""
 
         ########################################################################
         ## Terminal screen
@@ -41,6 +57,9 @@ class App(tk.Frame):
             insertwidth=1,
             undo=False
         )
+
+        self.stdout = Redirect(self, stream="stdout")
+        self.stderr = Redirect(self, stream="stderr")
 
         self.frameScrollbar = Frame(self.frameTerminal, borderwidth=0, width=14, bg=self.TerminalColors["bg"])
         # tell frame not to let its children control its size
@@ -75,13 +94,6 @@ class App(tk.Frame):
         self.statusLabel = Label(self.frameStatusBar, textvariable=self.statusText, font=("Helvetica", 8), relief=FLAT)
         self.statusLabel.pack(side=LEFT)
 
-
-        self.shellMapping = {
-            "sh"        : "/bin/bash",
-            "bash"      : "/bin/bash",
-            "windows"   : None
-        }
-
         ########################################################################
         ## Style configure for ttk widgets
         ########################################################################
@@ -102,28 +114,26 @@ class App(tk.Frame):
 
         self.style.configure("Status.TFrame", background="#21252B", borderwidth=0, relief=FLAT)
 
-
         # following are style option for the drop down combobox listbox
         self.option_add('*TCombobox*Listbox*Background', '#21252B')
         self.option_add('*TCombobox*Listbox*Foreground', "#9DA5B4")
         self.option_add('*TCombobox*Listbox.font', ("Helvetica", 8))
 
-
         self.shellComboBox = ttk.Combobox(self.frameStatusBar, style="Shell.TCombobox", state="readonly", width=8, font=("Helvetica", 8))
         self.shellComboBox.pack(side=RIGHT, padx=0)
-        self.shellComboBox['values'] = list(self.shellMapping)
+        self.shellComboBox['values'] = list(Interpreter.MAPPINGS.keys())
 
-        # Initialise interpreter backends
-        self.init_interpreter()
+        # Set default shell
+        self.shellComboBox.set(Interpreter.DEFAULT_SHELL)
 
         self.shellComboBox.bind("<<ComboboxSelected>>", self.update_shell)
         # self.shellComboBox.bind("<Button-1>", self.do_leftClick)
         self.shellComboBox.bind("<Escape>", self.do_leftClickRelease, add="+")
 
+
         ########################################################################
         ## Set style colours
         ########################################################################
-
         self.set_color_style()
 
         ########################################################################
@@ -135,8 +145,7 @@ class App(tk.Frame):
         self.frameStatusBar.pack(side=BOTTOM, fill=X)
         self.frameTerminal.pack(side=TOP, fill=BOTH, expand=True)
         self.frameScrollbar.pack(side=RIGHT, fill=Y)
-        self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True, padx=(4,0), pady=0)
-
+        self.TerminalScreen.pack(side=LEFT, fill=BOTH, expand=True, padx=(4,0), pady=(4,0))
 
         ########################################################################
         ## Key bindings
@@ -145,35 +154,39 @@ class App(tk.Frame):
         self.frameScrollbar.bind('<MouseWheel>', self.rollWheel)
         self.scrollbar.bind('<MouseWheel>', self.rollWheel)
 
-
         self.TerminalScreen.bind('<Control-c>', self.do_cancel)
         self.bind_keys()
 
         # Bind all other key press
         self.TerminalScreen.bind("<KeyPress>", self.do_keyPress)
 
-        self.pendingKeys = ""
-
         self.insertionIndex = self.TerminalScreen.index("end")
         self.count = 0
 
         self.terminalThread = None
-
-        # Sets default shell based on operating system
-        if (os.name == 'nt'):
-            self.shellComboBox.set("windows")
-        else:
-            self.shellComboBox.set("bash")
-
-
         self.processTerminated = False
 
         # Caret handling and multiline commands
         self.multilineCommand = ""
-        self.caretHandling = False
 
         # Automatically set focus to Terminal screen when initialised
         self.TerminalScreen.focus_set()
+
+    def terminate(self):
+        """ Terminate this terminal instance """
+
+        if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
+            self.TerminalScreen.event_generate("<Control-c>")
+            self.stdout = sys.stdout
+            self.stderr = sys.stderr
+
+            self.check_process_terminate()
+
+    def check_process_terminate(self):
+
+        if (self.terminalThread is not None) and (self.terminalThread.is_alive()):
+            self.after(100, self.check_process_terminate)
+
 
     def reset(self):
 
@@ -185,42 +198,45 @@ class App(tk.Frame):
         """
         Set coloring style for widgets
         """
-        self.TerminalScreen["bg"]               = self.TerminalColors["bg"]
-        self.TerminalScreen["fg"]               = self.TerminalColors["fg"]
-        self.TerminalScreen["selectbackground"] = self.TerminalColors["selectbackground"]
 
-        self.frameTerminal["bg"] = self.TerminalColors["bg"]
-        self.frameScrollbar["bg"] = self.TerminalColors["bg"]
+        TerminalColors = TkTermConfig.get_config()
+
+        self.TerminalScreen["bg"]               = TerminalColors["bg"]
+        self.TerminalScreen["fg"]               = TerminalColors["fg"]
+        self.TerminalScreen["selectbackground"] = TerminalColors["selectbackground"]
+
+        self.frameTerminal["bg"] = TerminalColors["bg"]
+        self.frameScrollbar["bg"] = TerminalColors["bg"]
 
         ########################################################################
         ## Font
         ########################################################################
 
-        terminalFont = Font(family=self.TerminalColors["fontfamily"], size=self.TerminalColors["fontsize"])
+        terminalFont = Font(family=TerminalColors["fontfamily"], size=TerminalColors["fontsize"])
         self.TerminalScreen["font"] = terminalFont
 
         boldFont = Font(font=terminalFont)
         boldFont.configure(weight="bold")
 
-        self.TerminalScreen.tag_config("basename", foreground=self.TerminalColors["basename"], font=boldFont)
-        self.TerminalScreen.tag_config("error", foreground=self.TerminalColors["error"])
-        self.TerminalScreen.tag_config("output", foreground=self.TerminalColors["output"])
+        self.TerminalScreen.tag_config("basename", foreground=TerminalColors["basename"], font=boldFont)
+        self.TerminalScreen.tag_config("error", foreground=TerminalColors["error"])
+        self.TerminalScreen.tag_config("output", foreground=TerminalColors["output"])
 
         ########################################################################
         ## Scrollbar
         ########################################################################
 
-        self.style.configure("Terminal.Vertical.TScrollbar", troughcolor=self.TerminalColors["bg"])
-        self.style.configure("Terminal.Vertical.TScrollbar", arrowcolor=self.TerminalColors["bg"])
+        self.style.configure("Terminal.Vertical.TScrollbar", troughcolor=TerminalColors["bg"])
+        self.style.configure("Terminal.Vertical.TScrollbar", arrowcolor=TerminalColors["bg"])
 
         self.style.map('Terminal.Vertical.TScrollbar',
             background=[
                 ('pressed', "#9DA5B4"),
-                ('disabled', self.TerminalColors["bg"])
+                ('disabled', TerminalColors["bg"])
             ],
             arrowcolor=[
-                ('disabled', self.TerminalColors["bg"]),
-                ('active', self.TerminalColors["bg"])
+                ('disabled', TerminalColors["bg"]),
+                ('active', TerminalColors["bg"])
             ]
         )
 
@@ -244,12 +260,12 @@ class App(tk.Frame):
         self.statusLabel["fg"] = "#9DA5B4"
 
         # Use i-beam cursor
-        if self.TerminalColors["cursorshape"] == "bar":
+        if TerminalColors["cursorshape"] == "bar":
             self.TerminalScreen['blockcursor'] = False
             self.TerminalScreen['insertwidth'] = 1
 
         # Use block cursor
-        elif self.TerminalColors["cursorshape"] == "block":
+        elif TerminalColors["cursorshape"] == "block":
             self.TerminalScreen['blockcursor'] = True
             self.TerminalScreen['insertwidth'] = 0
 
@@ -294,7 +310,7 @@ class App(tk.Frame):
             else:
                 self.style.configure("Terminal.Vertical.TScrollbar", arrowsize=10)
                 self.style.map('Terminal.Vertical.TScrollbar',
-                    background=[('active', "#9DA5B4"), ('pressed', "#9DA5B4"), ('disabled', self.TerminalColors["bg"])]
+                    background=[('active', "#9DA5B4"), ('pressed', "#9DA5B4"), ('disabled', TkTermConfig.CONFIG["bg"])]
                 )
                 self.style.configure("Terminal.Vertical.TScrollbar", background="#9DA5B4")
 
@@ -307,7 +323,7 @@ class App(tk.Frame):
                 self.style.configure("Terminal.Vertical.TScrollbar", arrowsize=-10)
                 self.style.configure("Terminal.Vertical.TScrollbar", width=5)
                 self.style.map('Terminal.Vertical.TScrollbar',
-                    background=[('active', "#3A3E48"), ('disabled', self.TerminalColors["bg"])]
+                    background=[('active', "#3A3E48"), ('disabled', TkTermConfig.CONFIG["bg"])]
                 )
                 self.style.configure("Terminal.Vertical.TScrollbar", background="#3A3E48")
 
@@ -384,15 +400,16 @@ class App(tk.Frame):
 
         return "break"
 
-    def update_shell(self, *args):
-        self.set_current_interpreter(self.shellComboBox.get())
+    def update_shell(self, print_basename=True, *args):
+        self.currentInterpreter = Interpreter.get_interpreter(self.shellComboBox.get())
         self.shellComboBox.selection_clear()
         self.TerminalScreen.focus()
 
-        # When new shell is selected from the list we want to add new line
-        # and print basename in case the prompt changes
-        self.insert_new_line()
-        self.print_basename()
+        if print_basename:
+            # When new shell is selected from the list we want to add new line
+            # and print basename in case the prompt changes
+            self.insert_new_line()
+            self.print_basename()
 
     def do_cancel(self, *args):
 
@@ -403,31 +420,13 @@ class App(tk.Frame):
 
             # Signals TerminalPrint to immediately stops any printout
             self.processTerminated = True
-            print("^C")
 
-            self.INTERPRETER.terminate(self.terminalThread.process)
+            self.stdout.write("^C")
 
-            # if (os.name == 'nt'):
-            #     process = subprocess.Popen(
-            #         "TASKKILL /F /PID {} /T".format(self.terminalThread.process.pid),
-            #         stdout=subprocess.PIPE,
-            #         stderr=subprocess.PIPE,
-            #         universal_newlines=True
-            #     )
-            #     for line in process.stdout:
-            #         print(line, end='')
-            #     for line in process.stderr:
-            #         print(line, file=sys.stderr, end='')
+            (stdout, stderr) = self.currentInterpreter.terminate(self.terminalThread.process)
 
-            # else:
-
-            #     os.system("pkill -TERM -P %s" % self.terminalThread.process.pid)
-
-            #     self.terminalThread.process.kill()
-            #     self.terminalThread.process.terminate()
-            #     # os.kill(self.terminalThread.process.pid, signal.SIGTERM)
-
-            #     self.terminalThread.process.wait()
+            self.stdout.write(stdout, end='')
+            self.stderr.write(stderr, end='')
 
         else:
 
@@ -443,11 +442,11 @@ class App(tk.Frame):
             self.insert_new_line()
             self.print_basename()
 
-    class TerminalPrint(threading.Thread):
+    class TerminalPrint(KThread):
 
-        def __init__(self, outer_instance, cmd):
+        def __init__(self, top, cmd):
 
-            threading.Thread.__init__(self)
+            KThread.__init__(self)
             # super().__init__(parent, *args, **kwargs)
 
             self.daemon = True
@@ -457,63 +456,48 @@ class App(tk.Frame):
             self.process = None
 
             # Attach outer class instance
-            self.outer_instance = outer_instance
-            self.shellMapping = outer_instance.shellMapping
+            self.top = top
 
         def run(self):
 
-            stdin = subprocess.PIPE
-
-            process_options = {
-                "shell"                 : True,
-                "stdout"                : subprocess.PIPE,
-                "stderr"                : subprocess.PIPE,
-                "universal_newlines"    : True,
-                "cwd"                   : os.getcwd()
-            }
-
-            # Ignore utf-8 decode error which sometimes happens on early terminating
-            if os.name != "nt":
-                process_options["errors"] = "ignore"
-
             # Modify shell executable based on selected shell combobox variable
-            shellSelected = self.outer_instance.shellComboBox.get()
-            process_options['executable'] = self.shellMapping[shellSelected]
+            shellSelected = self.top.shellComboBox.get()
 
             # Set current interpreter based on shell selected
-            self.outer_instance.set_current_interpreter(shellSelected)
+            self.top.currentInterpreter = Interpreter.get_interpreter(shellSelected)
 
             if self.cmd != "":
 
-                # with subprocess.Popen(self.cmd, **process_options) as self.process:
-                with self.outer_instance.INTERPRETER.execute(self.cmd) as self.process:
+                try:
 
-                    if hasattr(self.process, "stdout") and hasattr(self.process, "stderr"):
+                    # with subprocess.Popen(self.cmd, **process_options) as self.process:
+                    with self.top.currentInterpreter.execute(self.cmd) as self.process:
+
+                        # if hasattr(self.process, "stdout") and hasattr(self.process, "stderr"):
                         for line in self.process.stdout:
 
-                            # if self.outer_instance.processTerminated:
+                            # if self.top.processTerminated:
                             #     break
 
-                            print(line, end='')
+                            self.top.stdout.write(line, end='')
 
                         for line in self.process.stderr:
-                            print(line, file=sys.stderr, end='')
-
-                    pass
+                            self.top.stderr.write(line, end='')
 
 
-                # rc = self.process.poll()
-                # self.returnCode = rc
+                    self.returnCode = self.top.currentInterpreter.get_return_code(self.process)
 
-                self.returnCode = self.outer_instance.INTERPRETER.get_return_code(self.process)
+                except Exception:
+                    self.top.stderr.write(traceback.format_exc())
+                    self.returnCode = -1
 
             # Always print basename on a newline
-            insert_pos = self.outer_instance.TerminalScreen.index("insert")
+            insert_pos = self.top.TerminalScreen.index("insert")
             if insert_pos.split('.')[1] != '0':
-                self.outer_instance.insert_new_line()
+                self.top.insert_new_line()
 
-            self.outer_instance.print_basename()
-            self.outer_instance.processTerminated = False
+            self.top.print_basename()
+            self.top.processTerminated = False
 
     def clear_screen(self):
         """ Clear screen and print basename """
@@ -524,8 +508,9 @@ class App(tk.Frame):
     def print_basename(self):
         """ Print basename on Terminal """
 
-        print(self.get_basename(), end='')
-        print(self.pendingKeys, end='')
+        self.stdout.write(self.get_basename(), end='')
+        self.stdout.write(self.pendingKeys, end='')
+
         self.pendingKeys = ""
 
     def get_basename(self):
@@ -534,7 +519,7 @@ class App(tk.Frame):
         if self.caretHandling:
             return "> "
         else:
-            return self.INTERPRETER.get_prompt()
+            return self.currentInterpreter.get_prompt()
 
     def get_last_basename(self):
         """ Get the basename after the last newline character """
@@ -622,16 +607,16 @@ class App(tk.Frame):
             self.delete_cmd()
             return_cmd += common_path[len(last_cmd):]
 
-            print(return_cmd, end='')
+            self.stdout.write(return_cmd, end='')
 
         # Also print the files and folders that matched the pattern only if
         # the results have more than one entry
         if len(cd_children) > 1:
             self.insert_new_line()
-            print('\n'.join(cd_children))
+            self.stdout.write('\n'.join(cd_children))
 
             self.print_basename()
-            print(return_cmd, end='')
+            self.stdout.write(return_cmd, end='')
 
         return "break"
 
@@ -736,7 +721,7 @@ class App(tk.Frame):
                     self.set_returnCode(0)
                 else:
                     self.insert_new_line()
-                    print("cd: no such file or directory: {}".format(path), file=sys.stderr)
+                    self.stderr.write("cd: no such file or directory: {}".format(path))
                     self.set_returnCode(1)
 
                 self.print_basename()
@@ -780,7 +765,7 @@ class App(tk.Frame):
             self.delete_cmd()
 
             cmd = self.commandHistory[self.commandIndex]
-            print(cmd, end='')
+            self.stdout.write(cmd, end='')
 
         return 'break'
 
@@ -793,7 +778,7 @@ class App(tk.Frame):
             self.delete_cmd()
 
             cmd = self.commandHistory[self.commandIndex]
-            print(cmd, end='')
+            self.stdout.write(cmd, end='')
 
         elif self.commandIndex == 0:
             self.commandIndex = -1
@@ -811,7 +796,7 @@ class App(tk.Frame):
         """ Monitor running process and update RC and Status on status bar """
 
         seq1 = ["⢿", "⣻", "⣽", "⣾", "⣷", "⣯", "⣟", "⡿"]
-        seq2 = [".", "..", "...", "....", ".....", "....", "...", ".."]
+        seq2 = ["∙∙∙∙∙∙∙", "●∙∙∙∙∙∙", "∙●∙∙∙∙∙", "∙∙●∙∙∙∙", "∙∙∙●∙∙∙", "∙∙∙∙●∙∙", "∙∙∙∙∙●∙", "∙∙∙∙∙∙●"]
 
         if progress_thread.is_alive():
 
@@ -843,5 +828,5 @@ class App(tk.Frame):
 
         while self.terminalThread: pass
 
-        print(cmd, end='')
+        self.stdout.write(cmd, end='')
         self.do_keyReturn()

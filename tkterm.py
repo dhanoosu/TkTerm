@@ -26,188 +26,156 @@ from src.Utils import *
 from src.Redirect import Redirect
 from src.RightClickContextMenu import RightClickContextMenu
 from src.SearchBar import SearchBar
+from src.Interpreter import Interpreter
+from src.Config import TkTermConfig
 
-# Configuration filename
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "tkterm_settings.json")
-
-class TerminalTab(ttk.Notebook):
-
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-
-        self.pack(expand=True, fill=BOTH)
-
-        self.enable_traversal()
-
-        self.tabs = []
-
-        self._add_tab("Terminal 1")
-        self._add_tab("+")
-
-        self.bind("<B1-Motion>", self._reorder)
-
-    def init_style(self, TerminalColors):
-
-        s = ttk.Style()
-        s.theme_use('default')
-        s.configure('Terminal.TNotebook',
-            background="#2f333d",
-            bd=0,
-            borderwidth=0,
-            padding=[0,0,0,0],
-            tabmargins=[5, 5, 5, 0],
-            # tabposition='wn'
-        )
-
-        s.configure('Terminal.TNotebook.Tab',
-            borderwidth=0,
-            padding=[5,5],
-            width=10
-        )
-
-        s.map("Terminal.TNotebook.Tab",
-            background=[("selected", TerminalColors["bg"]), ("active", TerminalColors["bg"])],
-            foreground=[("selected", "white"), ("active", "white")]
-        )
-
-        self.configure(style="Terminal.TNotebook")
-
-
-    def _add_tab(self, name):
-
-        new_tab = tk.Frame(self, bd=0, relief=FLAT)
-        new_tab.pack(expand=True, fill=BOTH)
-
-        self.tabs.append(new_tab)
-
-        self.add(self.tabs[-1], text=name)
-
-
-    def _reorder(self, event):
-
-        try:
-            index = self.index(f"@{event.x},{event.y}")
-            self.insert(index, child=self.select())
-
-        except tk.TclError:
-            pass
-
-class Terminal(App):
+class Terminal(tk.Frame):
 
     """ Terminal widget """
 
     def __init__(self, parent, text=None, init=True, *args, **kwargs):
 
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
+        super().__init__(parent, *args, **kwargs)
 
-        # Current interpreter
-        self.INTERPRETER = InterpreterShell(None)
+        self.init = init
+        self.splashText = text
 
-        # List of interpreter backends
-        self.INTERPRETER_BACKENDS = {}
+        # Initialised all interpreter backends
+        Interpreter.init_backends()
 
-        # Default terminal settings
-        self.DefaultTerminalColors = {
-            "fg"                : "#00A79D",
-            "bg"                : "#282C34",
-            "insertbackground"  : "white",
-            "error"             : "red",
-            "output"            : "#E6E6E6",
-            "basename"          : "#0080ff",
-            "cursorshape"       : "bar",
-            "selectbackground"  : "#464E5E",
-            "fontfamily"        : "Cascadia Code SemiLight",
-            "fontsize"          : 9
-        }
+        ########################################################################
+        # Load setting profile
+        ########################################################################
+        self.TerminalConfig = TkTermConfig.get_default()
 
         if "Cascadia Code SemiLight" in font.families():
-            self.DefaultTerminalColors["fontfamily"] = "Cascadia Code SemiLight"
+            self.TerminalConfig["fontfamily"] = "Cascadia Code SemiLight"
         else:
-            self.DefaultTerminalColors["fontfamily"] = "Consolas"
+            self.TerminalConfig["fontfamily"] = "Consolas"
 
-        self.TerminalColors = self.DefaultTerminalColors.copy()
+        TkTermConfig.set_default(self.TerminalConfig)
 
         # Load settings from file
-        if os.path.isfile(CONFIG_FILE):
-            with open(CONFIG_FILE, "r") as f:
-                data = json.load(f)
+        if os.path.isfile(TkTermConfig.CONFIG_FILE):
+            with open(TkTermConfig.CONFIG_FILE, "r") as f:
+                try:
+                    data = json.load(f)
 
-                for k in data.keys():
-                    if k in self.TerminalColors.keys():
-                        self.TerminalColors[k] = data[k]
+                    for k in data.keys():
+                        if k in self.TerminalConfig.keys():
+                            self.TerminalConfig[k] = data[k]
+                except:
+                    pass
+
+        TkTermConfig.set_config(self.TerminalConfig)
+
+        ########################################################################
+        # Create terminal tabs using notebook
+        ########################################################################
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(expand=True, fill=BOTH)
+        self.notebook.bind("<B1-Motion>", self._reorder_tab)
+        self.notebook.bind("<ButtonRelease-2>", self._close_tab)
+        self.notebook.bind("<<NotebookTabChanged>>", self._insert_tab)
+
+        self.terminalTabs = []
+
+        # Add default tabs
+        # This will automatically create a tab and an add tab button
+        self.notebook.add(tk.Frame(self), text="+")
+
+        # Set color profile for notebook
+        self.init_style()
+
+        self.parent = parent
+        # self.parent.bind("<Configure>", self.on_resize)
+
+    def add_interpreter(self, name, backend, set_default=True):
+        """ Add a new interpreter and optionally set as default """
+
+        Interpreter.add_interpreter(name, backend, set_default)
+
+    def _insert_tab(self, *event):
+        """ Insert new tab event """
+
+        # Fake the last tab as insert new tab
+        if self.notebook.select() == self.notebook.tabs()[-1]:
+            terminal = App(self)
+
+            if self.splashText:
+                terminal.update_shell(print_basename=False)
+                terminal.stdout.write(self.splashText)
+
+            terminal.update_shell()
+
+            # Attach search bar to terminal
+            terminal.searchBar = SearchBar(terminal)
+
+            # Attach right click context menu
+            terminal.contextMenu = RightClickContextMenu(self, terminal)
+
+            # Insert new tab before the add button
+            index = len(self.notebook.tabs()) - 1
+            self.notebook.insert(index, terminal, text="Terminal {}".format(len(self.notebook.tabs())))
+            self.notebook.select(index)
+
+    def _reorder_tab(self, event):
+        """ Drag to reorder tab """
+
+        try:
+            index = self.notebook.index(f"@{event.x},{event.y}")
+
+            if index >= len(self.notebook.tabs()) - 1:
+                return
+
+            self.notebook.insert(index, child=self.notebook.select())
+
+        except tk.TclError:
+            pass
+
+    def _close_tab(self, event):
+        """ Close tab event """
 
         try:
 
-            # Create tabbed terminal
-            # terminalTab = TerminalTab(parent)
-            # terminalTab.init_style(self.TerminalColors)
+            index = self.notebook.index(f"@{event.x},{event.y}")
 
+            # Do nothing if it is the last tab (add tab button)
+            if index >= len(self.notebook.tabs()) - 1:
+                return
 
-            # Initialise super classes
-            # super().__init__(terminalTab.tabs[0], *args, **kwargs)
-            # super().__init__(terminalTab.tabs[1], *args, **kwargs)
+            # Do nothing if there are 2 tabs left
+            if len(self.notebook.tabs()) == 2:
+                return
 
-            super().__init__(parent, *args, **kwargs)
+            # When closing the last tab, immediately switch to the tab before
+            if index == len(self.notebook.tabs()) - 2:
+                self.notebook.select(len(self.notebook.tabs()) - 3)
 
-            # for tab in terminalTab.tabs:
-            #     a = App(tab, self.TerminalColors)
-            #     self.contextMenu = RightClickContextMenu(a)
+            app = self.notebook.nametowidget(self.notebook.tabs()[index])
 
-            sys.stdout = Redirect(self, stream="stdout")
-            sys.stderr = Redirect(self, stream="stderr")
+            # TODO: Error on closing tabs if there are processes running
+            # If process still running just kill it
+            app.terminate()
 
+            for child in app.winfo_children():
+                child.destroy()
 
-            self.parent = parent
-            self.parent.bind("<Configure>", self.on_resize)
+            app.destroy()
 
+            # self.notebook.event_generate("<<NotebookTabClosed>>")
 
-            # Print some text before the main initialisation
-            if text:
-                print(text)
-
-            # Initialisation - print the basename
-            if init:
-                self.print_basename()
-
-            # Attach search bar to terminal screen
-            self.searchBar = SearchBar(self.TerminalScreen)
-
-            # Attach right-click context menu
-            self.contextMenu = RightClickContextMenu(self)
-
-        except:
-            # sys.stdout = sys.__stdout__
-            # sys.stderr = sys.__stderr__
+        except Exception:
             pass
 
-    def set_current_interpreter(self, name):
-        """ Set current interpreter based on shell selected """
+    def set_color_style(self):
 
-        self.INTERPRETER = self.INTERPRETER_BACKENDS[name]
+        for tab in self.notebook.tabs()[:-1]:
+            app = self.notebook.nametowidget(tab)
 
-        # Update history storage binding
-        self.commandHistory = self.INTERPRETER.get_history()
+            app.set_color_style()
 
-    def add_interpreter(self, name, interpreter, set_default=True):
-        """ Add a new interpreter and optionally set as default """
-
-        self.shellMapping[name] = None
-        self.shellComboBox['values'] = list(self.shellMapping)
-
-        self.INTERPRETER_BACKENDS[name] = interpreter
-
-        if set_default:
-            self.shellComboBox.set(name)
-            self.update_shell()
-
-    def init_interpreter(self):
-        """ Initialise interpreter backends """
-
-        self.INTERPRETER_BACKENDS.clear()
-
-        for name in self.shellComboBox['values']:
-            self.INTERPRETER_BACKENDS[name] = InterpreterShell(self.shellMapping[name])
+        self.init_style()
 
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
@@ -221,6 +189,39 @@ class Terminal(App):
 
         # self.statusText.set(self.TerminalScreen.winfo_height())
 
+    def init_style(self):
+        """ Style the notebook """
+
+        s = ttk.Style()
+        s.theme_use('default')
+        s.configure('Terminal.TNotebook',
+            background="#414755",
+            bd=0,
+            borderwidth=0,
+            padding=[0,0,0,0],
+            tabmargins=[7, 7, 50, 0],
+            # tabposition='wn'
+        )
+
+        s.configure('Terminal.TNotebook.Tab',
+            borderwidth=0,
+            padding=[10,5],
+            # width=15,
+            height=1,
+            background="#495162",
+            foreground="#9da5b4",
+            font=('Helvetica','8'),
+            focuscolor=TkTermConfig.get_config("bg")
+        )
+
+        s.map("Terminal.TNotebook.Tab",
+            background=[("selected", TkTermConfig.get_config("bg")), ("active", TkTermConfig.get_config("bg"))],
+            foreground=[("selected", "white"), ("active", "white")],
+            font=[("selected", ('Helvetica 8 bold'))]
+        )
+
+        self.notebook.configure(style="Terminal.TNotebook")
+
 
 if __name__ == "__main__":
 
@@ -229,12 +230,12 @@ if __name__ == "__main__":
     root.geometry("700x400")
 
 
-    terminal = Terminal(root, bg="#282C34", bd=0)
+    terminal = Terminal(root)
     terminal.pack(expand=True, fill=BOTH)
 
     # root.iconbitmap(default='icon.png')
 
     photo = PhotoImage(file="icon.png")
     root.iconphoto(False, photo)
-
+    root.update()
     root.mainloop()
