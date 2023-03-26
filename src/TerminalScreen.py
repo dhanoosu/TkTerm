@@ -42,6 +42,8 @@ class App(tk.Frame):
         self.caretHandling = False
         self.pendingKeys = ""
 
+        self.icon = None
+
         ########################################################################
         ## Terminal screen
         ########################################################################
@@ -359,9 +361,6 @@ class App(tk.Frame):
         self.TerminalScreen.bind("<Home>",              lambda event: "break")
         self.TerminalScreen.bind("<B1-Motion>",         lambda event: "break")
 
-
-
-
     def rollWheel(self, event):
         direction = 0
         if event.num == 5 or event.delta == -120:
@@ -401,9 +400,17 @@ class App(tk.Frame):
         return "break"
 
     def update_shell(self, print_basename=True, *args):
+
+        # Update current interpreter
         self.currentInterpreter = Interpreter.get_interpreter(self.shellComboBox.get())
         self.shellComboBox.selection_clear()
         self.TerminalScreen.focus()
+
+        # Update icon
+        self.icon = Interpreter.get_icon(self.shellComboBox.get())
+
+        # Generate event
+        self.event_generate("<<updateShell>>")
 
         if print_basename:
             # When new shell is selected from the list we want to add new line
@@ -464,7 +471,7 @@ class App(tk.Frame):
             shellSelected = self.top.shellComboBox.get()
 
             # Set current interpreter based on shell selected
-            self.top.currentInterpreter = Interpreter.get_interpreter(shellSelected)
+            # self.top.currentInterpreter = Interpreter.get_interpreter(shellSelected)
 
             if self.cmd != "":
 

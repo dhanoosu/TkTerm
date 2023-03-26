@@ -1,21 +1,18 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-import os
 
 from .Tooltip import Tooltip
-
-def get_absolute_path(*args):
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
+from .Utils import get_absolute_path
 
 class SearchBar():
 
     def __init__(self, parent):
         self.TerminalScreen = parent.TerminalScreen
         self.frameTerminal = parent.frameTerminal
-        self.init()
+        self._init()
 
-    def init(self):
+    def _init(self):
 
         ## Bind keys
         self.TerminalScreen.bind('<Control-f>', self.open_searchbar)
@@ -24,11 +21,11 @@ class SearchBar():
         self.foundList = []
         self._reset()
 
-        self.click_close    = PhotoImage(file=get_absolute_path("../img", 'close.png'))
-        self.click_next     = PhotoImage(file=get_absolute_path("../img", 'next.png'))
-        self.click_prev     = PhotoImage(file=get_absolute_path("../img", 'prev.png'))
-        self.click_regex    = PhotoImage(file=get_absolute_path("../img", 'regex.png'))
-        self.click_case     = PhotoImage(file=get_absolute_path("../img", 'case.png'))
+        self.click_close    = PhotoImage(file=get_absolute_path(__file__, "../img", 'close.png'))
+        self.click_next     = PhotoImage(file=get_absolute_path(__file__, "../img", 'next.png'))
+        self.click_prev     = PhotoImage(file=get_absolute_path(__file__, "../img", 'prev.png'))
+        self.click_regex    = PhotoImage(file=get_absolute_path(__file__, "../img", 'regex.png'))
+        self.click_case     = PhotoImage(file=get_absolute_path(__file__, "../img", 'case.png'))
 
 
     def _reset(self):

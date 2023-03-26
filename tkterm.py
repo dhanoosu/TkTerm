@@ -82,7 +82,8 @@ class Terminal(tk.Frame):
 
         # Add default tabs
         # This will automatically create a tab and an add tab button
-        self.notebook.add(tk.Frame(self), text="+")
+        self.icon = PhotoImage(file=get_absolute_path(__file__, "./img", "plus.png"))
+        self.notebook.add(tk.Frame(self), image=self.icon)
 
         # Set color profile for notebook
         self.init_style()
@@ -90,10 +91,10 @@ class Terminal(tk.Frame):
         self.parent = parent
         # self.parent.bind("<Configure>", self.on_resize)
 
-    def add_interpreter(self, name, backend, set_default=True):
+    def add_interpreter(self, *args, **kwargs):
         """ Add a new interpreter and optionally set as default """
 
-        Interpreter.add_interpreter(name, backend, set_default)
+        Interpreter.add_interpreter(*args, **kwargs)
 
     def _insert_tab(self, *event):
         """ Insert new tab event """
@@ -116,8 +117,16 @@ class Terminal(tk.Frame):
 
             # Insert new tab before the add button
             index = len(self.notebook.tabs()) - 1
-            self.notebook.insert(index, terminal, text="Terminal {}".format(len(self.notebook.tabs())))
+            self.notebook.insert(index, terminal, text=f"Terminal {len(self.notebook.tabs())}", image=terminal.icon, compound=LEFT)
             self.notebook.select(index)
+
+            tab_id = self.notebook.select()
+            terminal.bind("<<updateShell>>", lambda event: self._update_icon(tab_id))
+
+    def _update_icon(self, tab_id):
+
+        terminal = self.notebook.nametowidget(tab_id)
+        self.notebook.tab(tab_id, image=terminal.icon)
 
     def _reorder_tab(self, event):
         """ Drag to reorder tab """
@@ -157,6 +166,9 @@ class Terminal(tk.Frame):
             # TODO: Error on closing tabs if there are processes running
             # If process still running just kill it
             app.terminate()
+
+            del app.searchBar
+            del app.contextMenu
 
             for child in app.winfo_children():
                 child.destroy()
@@ -217,7 +229,8 @@ class Terminal(tk.Frame):
         s.map("Terminal.TNotebook.Tab",
             background=[("selected", TkTermConfig.get_config("bg")), ("active", TkTermConfig.get_config("bg"))],
             foreground=[("selected", "white"), ("active", "white")],
-            font=[("selected", ('Helvetica 8 bold'))]
+            font=[("selected", ('Helvetica 8 bold'))],
+            # expand=[("selected", [0, 3])]
         )
 
         self.notebook.configure(style="Terminal.TNotebook")
