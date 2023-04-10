@@ -82,14 +82,89 @@ class Terminal(tk.Frame):
 
         # Add default tabs
         # This will automatically create a tab and an add tab button
-        self.icon = PhotoImage(file=get_absolute_path(__file__, "./img", "plus.png"))
-        self.notebook.add(tk.Frame(self), image=self.icon)
+        self.iconPlus = PhotoImage(file=get_absolute_path(__file__, "./img", "plus.png"))
+        self.notebook.add(tk.Frame(self), image=self.iconPlus)
 
         # Set color profile for notebook
         self.init_style()
 
         self.parent = parent
         # self.parent.bind("<Configure>", self.on_resize)
+
+        ########################################################################
+        # Create button on notebook
+        ########################################################################
+        self.frameNav = tk.Frame(self)
+        self.frameNav.place(rely=0, relx=1.0, x=-10, y=17, anchor="e")
+
+        self.iconHamburger = PhotoImage(file=get_absolute_path(__file__, "./img", "hamburger.png"))
+
+        self.buttonTabList = tk.Button(
+            self.frameNav,
+            # text="\u2630",
+            image=self.iconHamburger,
+            width=30,
+            height=25,
+            bd=0,
+            relief=FLAT,
+            highlightbackground="#414755",
+            bg="#414755",
+            fg="#9da5b4",
+            activebackground="#495162",
+            activeforeground="#9da5b4"
+        )
+
+        self.buttonTabList.pack()
+
+        self.buttonTabList.bind("<ButtonRelease-1>", self._tab_menu)
+
+        if os.name == "nt":
+            self.buttonTabList.bind("<Enter>", lambda e: e.widget.config(bg="#495162"))
+            self.buttonTabList.bind("<Leave>", self._tab_menu_on_leave)
+
+    def _tab_menu_on_leave(self, event):
+
+        if event.widget["state"] == "normal":
+            event.widget.config(bg="#414755")
+
+    def _tab_menu(self, event):
+
+        self.tabListMenu = Menu(self,
+            tearoff=0,
+            bg="white",
+            borderwidth=1,
+            bd=1,
+            activebackground="#2c313a",
+            activeforeground="white",
+            selectcolor="red",
+            activeborderwidth=0,
+        )
+
+        # Add list of currently opened tabs to menu
+        for tab in self.notebook.tabs()[:-1]:
+
+            self.tabListMenu.add_command(
+                label=self.notebook.tab(tab, option="text"),
+                command= lambda temp=tab: self.notebook.select(temp)
+            )
+
+        self.tabListMenu.add_separator()
+        self.tabListMenu.add_command(label="About TkTerm ...")
+
+        self.tabListMenu.bind("<FocusOut>", lambda e: (
+            e.widget.destroy(),
+            event.widget.config(bg="#414755")
+        ))
+
+        try:
+            event.widget.config(fg="#9da5b4", bg="#495162")
+            self.tabListMenu.tk_popup(event.widget.winfo_rootx(), event.widget.winfo_rooty()+30)
+            # self.tabListMenu.focus_set()
+        finally:
+            self.tabListMenu.grab_release()
+
+            if os.name == "nt":
+                event.widget.config(bg="#414755")
 
     def add_interpreter(self, *args, **kwargs):
         """ Add a new interpreter and optionally set as default """
