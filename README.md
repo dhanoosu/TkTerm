@@ -2,13 +2,14 @@
 A fully functional terminal emulator built on Tkinter library - perform all basic commands of a terminal
 
 <p align="center">
-<img src="img/snapshot1.png">
+<img src="img/snapshot2.png">
 </p>
 
 Under the hood it executes commands using Python's *subprocess* module and spawn as a thread. Pressing `Ctrl-C` will terminate current running command. Supports Unix shells (`sh` and `bash`) and Window's Command Prompt (`cmd.exe`) commands.
 
 ## Features
 - Compatible with Windows and Unix systems
+- Tabbed Terminal - `click & drag` to reorder and `middle-click` to close tab
 - Return Code (RC) of previous run commands is shown at the bottom status bar
 - Settings to customise colours, font and cursor shape
 - **Ctrl-C** to kill current running process
@@ -20,11 +21,12 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 ## Requirements
 The Tkinter GUI library is built into Python, so no 3rd party library is required.
 
-Requires at least Python version 3 and above.
+Requires at least Python version 3.x and above.
 
 ## Standalone usage
 Run standalone script simply with
-```shell
+
+```bash
 $> python tkterm.py
 ```
 
