@@ -74,3 +74,9 @@ $>> echo I ^
 > and banana
 I have apple and banana
 ```
+
+## Author
+
+Developed by Dhanoo Surasarang
+
+Github: [@dhanoosu](https://github.com/dhanoosu)
