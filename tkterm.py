@@ -8,12 +8,8 @@ from tkinter import colorchooser
 from tkinter import font
 from tkinter.font import Font
 
-import threading
-import io
 import os
 import sys
-import subprocess
-import time
 import json
 
 # Add to system path
@@ -21,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from backend.InterpreterShell import InterpreterShell
 
-from src.TerminalScreen import App
 from src.Utils import *
+from src.TerminalScreen import TerminalWidget
 from src.Redirect import Redirect
 from src.RightClickContextMenu import RightClickContextMenu
 from src.SearchBar import SearchBar
@@ -75,8 +71,8 @@ class Terminal(tk.Frame):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(expand=True, fill=BOTH)
         self.notebook.bind("<B1-Motion>", self._reorder_tab)
-        self.notebook.bind("<ButtonRelease-2>", self._close_tab)
-        self.notebook.bind("<<NotebookTabChanged>>", self._insert_tab)
+        self.notebook.bind("<ButtonRelease-2>", lambda e: self._close_tab(event=e))
+        self.notebook.bind("<<NotebookTabChanged>>", self._tab_clicked)
 
         self.terminalTabs = []
 
@@ -97,7 +93,12 @@ class Terminal(tk.Frame):
         self.frameNav = tk.Frame(self)
         self.frameNav.place(rely=0, relx=1.0, x=-10, y=17, anchor="e")
 
-        self.iconHamburger = PhotoImage(file=get_absolute_path(__file__, "./img", "hamburger.png"))
+        self.iconHamburger  = PhotoImage(file=get_absolute_path(__file__, "./img", "hamburger.png"))
+        self.iconSearch     = PhotoImage(file=get_absolute_path(__file__, "./img", "search.png"))
+        self.iconNewTab     = PhotoImage(file=get_absolute_path(__file__, "./img", "new_tab.png"))
+        self.iconNextTab    = PhotoImage(file=get_absolute_path(__file__, "./img", "next_tab.png"))
+        self.iconPrevTab    = PhotoImage(file=get_absolute_path(__file__, "./img", "prev_tab.png"))
+        self.iconCloseTab   = PhotoImage(file=get_absolute_path(__file__, "./img", "close_tab.png"))
 
         self.buttonTabList = tk.Button(
             self.frameNav,
@@ -132,23 +133,75 @@ class Terminal(tk.Frame):
         self.tabListMenu = Menu(self,
             tearoff=0,
             bg="white",
-            borderwidth=1,
             bd=1,
             activebackground="#2c313a",
             activeforeground="white",
             selectcolor="red",
-            activeborderwidth=0,
+            activeborderwidth=1,
+            relief=GROOVE,
+            font="Helvetica 10"
         )
 
         # Add list of currently opened tabs to menu
         for tab in self.notebook.tabs()[:-1]:
 
             self.tabListMenu.add_command(
-                label=self.notebook.tab(tab, option="text"),
+                label="   " + self.notebook.tab(tab, option="text"),
+                image=self.notebook.tab(tab, option="image"),
+                compound=LEFT,
                 command= lambda temp=tab: self.notebook.select(temp)
             )
 
         self.tabListMenu.add_separator()
+
+        self.tabListMenu.add_command(
+            label="   Search",
+            accelerator="Ctrl+F",
+            image=self.iconSearch, compound=LEFT,
+            command=lambda : self.notebook.nametowidget(self.notebook.select()).event_generate("<Control-f>")
+        )
+
+        self.tabListMenu.add_command(
+            label="   New tab",
+            accelerator="Ctrl+T",
+            command=self._insert_new_tab,
+            image=self.iconNewTab, compound=LEFT
+        )
+
+        # Number of opened tabs (minus add tab button)
+        num_tabs = len(self.notebook.tabs()) - 1
+
+        if num_tabs == 1:
+            state = "disabled"
+        else:
+            state = "normal"
+
+        self.tabListMenu.add_command(
+            label="   Go to next tab",
+            accelerator="Ctrl+Tab",
+            command=lambda: self._cycle_through_tabs(True),
+            image=self.iconNextTab, compound=LEFT,
+            state=state
+        )
+
+        self.tabListMenu.add_command(
+            label="   Go to prev tab",
+            accelerator="Shift+Tab",
+            command=lambda: self._cycle_through_tabs(False),
+            image=self.iconPrevTab, compound=LEFT,
+            state=state
+        )
+
+        self.tabListMenu.add_command(
+            label="   Close this tab",
+            accelerator="Middle-click" + "{}".format("" if os.name == "nt" else "  "),
+            image=self.iconCloseTab, compound=LEFT,
+            command=lambda : self._close_tab(index=self.notebook.index(self.notebook.select())),
+            state=state
+        )
+
+        self.tabListMenu.add_separator()
+
         self.tabListMenu.add_command(label="About TkTerm ...")
 
         self.tabListMenu.bind("<FocusOut>", lambda e: (
@@ -171,32 +224,66 @@ class Terminal(tk.Frame):
 
         Interpreter.add_interpreter(*args, **kwargs)
 
-    def _insert_tab(self, *event):
-        """ Insert new tab event """
+    def _tab_clicked(self, *event):
+        """ Monitor tab change event """
 
         # Fake the last tab as insert new tab
         if self.notebook.select() == self.notebook.tabs()[-1]:
-            terminal = App(self)
+            self._insert_new_tab()
 
-            if self.splashText:
-                terminal.update_shell(print_basename=False)
-                terminal.stdout.write(self.splashText)
+    def _insert_new_tab(self):
+        """ Insert new tab event """
 
-            terminal.update_shell()
+        terminal = TerminalWidget(self)
 
-            # Attach search bar to terminal
-            terminal.searchBar = SearchBar(terminal)
+        if self.splashText:
+            terminal.update_shell(print_basename=False)
+            terminal.stdout.write(self.splashText)
 
-            # Attach right click context menu
-            terminal.contextMenu = RightClickContextMenu(self, terminal)
+        terminal.update_shell()
 
-            # Insert new tab before the add button
-            index = len(self.notebook.tabs()) - 1
-            self.notebook.insert(index, terminal, text=f"Terminal {len(self.notebook.tabs())}", image=terminal.icon, compound=LEFT)
-            self.notebook.select(index)
+        # Attach search bar to terminal
+        terminal.searchBar = SearchBar(terminal)
 
-            tab_id = self.notebook.select()
-            terminal.bind("<<updateShell>>", lambda event: self._update_icon(tab_id))
+        # Attach right click context menu
+        terminal.contextMenu = RightClickContextMenu(self, terminal)
+
+        # Insert new tab before the add button
+        index = len(self.notebook.tabs()) - 1
+        self.notebook.insert(index, terminal, text=f"Terminal {len(self.notebook.tabs())}", image=terminal.icon, compound=LEFT)
+        self.notebook.select(index)
+
+        tab_id = self.notebook.select()
+        terminal.bind("<<eventUpdateShell>>",   lambda e : self._update_icon(tab_id))
+        terminal.bind("<<eventNewTab>>",        lambda e : self._insert_new_tab())
+        terminal.bind("<<eventCycleNextTab>>",  lambda e : self._cycle_through_tabs(traverse_next=True))
+        terminal.bind("<<eventCyclePrevTab>>",  lambda e : self._cycle_through_tabs(traverse_next=False))
+
+    def _cycle_through_tabs(self, traverse_next=True):
+        """ Cycle through opened tabs """
+
+        # Number of opened tabs (minus add tab button)
+        num_tabs = len(self.notebook.tabs()) - 1
+
+        # Get current tab id and its index
+        tab_id = self.notebook.select()
+        index = self.notebook.index(tab_id)
+
+        # Work out new tab index
+        if traverse_next:
+            if (index >= num_tabs - 1): index = 0
+            else:                       index += 1
+        else:
+            if index == 0:              index = num_tabs - 1
+            else:                       index -= 1
+
+        # Select new tab
+        self.notebook.select(index)
+
+        # Set focus on the terminal
+        new_tab_id = self.notebook.select()
+        terminal = self.notebook.nametowidget(new_tab_id)
+        terminal.TerminalScreen.focus_set()
 
     def _update_icon(self, tab_id):
 
@@ -217,12 +304,13 @@ class Terminal(tk.Frame):
         except tk.TclError:
             pass
 
-    def _close_tab(self, event):
+    def _close_tab(self, index=None, event=None):
         """ Close tab event """
 
         try:
 
-            index = self.notebook.index(f"@{event.x},{event.y}")
+            if event:
+                index = self.notebook.index(f"@{event.x},{event.y}")
 
             # Do nothing if it is the last tab (add tab button)
             if index >= len(self.notebook.tabs()) - 1:

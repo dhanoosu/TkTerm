@@ -21,12 +21,14 @@ from backend.KThread import KThread
 
 import traceback
 
-class App(tk.Frame):
+class TerminalWidget(tk.Frame):
 
     SHELL_MAPPINGS = Interpreter.MAPPINGS
 
     def __init__(self, parent, **kwargs):
         tk.Frame.__init__(self, parent, **kwargs)
+
+        self.parent = parent
 
         self.basename = ""
         self.commandIndex = -1
@@ -157,6 +159,14 @@ class App(tk.Frame):
         self.scrollbar.bind('<MouseWheel>', self.rollWheel)
 
         self.TerminalScreen.bind('<Control-c>', self.do_cancel)
+        self.TerminalScreen.bind("<Control-t>", lambda e: self.event_generate("<<eventNewTab>>") or "break")
+        self.TerminalScreen.bind('<Control-Tab>', lambda e: self.event_generate("<<eventCycleNextTab>>") or "break")
+
+        if os.name == "nt":
+            self.TerminalScreen.bind('<Shift-Tab>', lambda e: self.event_generate("<<eventCyclePrevTab>>") or "break")
+        else:
+            self.TerminalScreen.bind('<ISO_Left_Tab>', lambda e: self.event_generate("<<eventCyclePrevTab>>") or "break")
+
         self.bind_keys()
 
         # Bind all other key press
@@ -410,7 +420,7 @@ class App(tk.Frame):
         self.icon = Interpreter.get_icon(self.shellComboBox.get())
 
         # Generate event
-        self.event_generate("<<updateShell>>")
+        self.event_generate("<<eventUpdateShell>>")
 
         if print_basename:
             # When new shell is selected from the list we want to add new line
