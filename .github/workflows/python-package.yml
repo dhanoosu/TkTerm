@@ -42,4 +42,4 @@ jobs:
     #    pytest
     - name: Run main
       run: |
-        python tktern.py
+        python tkterm.py
