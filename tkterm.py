@@ -12,9 +12,9 @@ import json
 # Add to system path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.Utils import *
 from src.TerminalTab import TerminalTab
 from src.Interpreter import Interpreter
+from src.ExitDiaglogBox import ExitDiaglogBox
 from src.Config import TkTermConfig
 
 class Terminal(tk.Frame):
@@ -86,13 +86,11 @@ if __name__ == "__main__":
     root.title("TkTerm - Terminal Emulator")
     root.geometry("700x400")
 
-
     terminal = Terminal(root)
     terminal.pack(expand=True, fill=BOTH)
 
-    # root.iconbitmap(default='icon.png')
+    icon = PhotoImage(file="icon.png")
+    root.iconphoto(False, icon)
 
-    photo = PhotoImage(file="icon.png")
-    root.iconphoto(False, photo)
-    root.update()
+    ExitDiaglogBox(root, icon)
     root.mainloop()
