@@ -26,7 +26,7 @@ class InterpreterShell(InterpreterInterface):
             self.process_options['executable'] = interpreter_path
 
     def execute(self, command):
-        return subprocess.Popen(command, **self.process_options, cwd=os.getcwd())
+        return subprocess.Popen(command, cwd=os.getcwd(), **self.process_options)
 
     def terminate(self, processThread):
 
