@@ -15,8 +15,7 @@ class InterpreterShell(InterpreterInterface):
             "shell"                 : True,
             "stdout"                : subprocess.PIPE,
             "stderr"                : subprocess.PIPE,
-            "universal_newlines"    : True,
-            "cwd"                   : os.getcwd()
+            "universal_newlines"    : True
         }
 
         # Ignore utf-8 decode error which sometimes happens on early terminating
@@ -27,7 +26,7 @@ class InterpreterShell(InterpreterInterface):
             self.process_options['executable'] = interpreter_path
 
     def execute(self, command):
-        return subprocess.Popen(command, **self.process_options)
+        return subprocess.Popen(command, **self.process_options, cwd=os.getcwd())
 
     def terminate(self, processThread):
 
