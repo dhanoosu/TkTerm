@@ -62,7 +62,6 @@ class Terminal(tk.Frame):
         self.notebook = TerminalTab(self, self.splashText)
         self.notebook.pack(expand=True, fill=BOTH)
 
-
     def add_interpreter(self, *args, **kwargs):
         """ Add a new interpreter and optionally set as default """
 

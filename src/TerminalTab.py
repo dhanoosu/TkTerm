@@ -29,7 +29,7 @@ class TerminalTab(ttk.Notebook):
         # This will automatically create a tab and an add tab button
         ########################################################################
         self.iconPlus = PhotoImage(file=get_absolute_path(__file__, "../img", "plus.png"))
-        self.add(tk.Frame(self), image=self.iconPlus)
+        self.add(tk.Frame(self.parent), image=self.iconPlus)
 
         # Set color profile for notebook
         self.init_style()
@@ -37,7 +37,7 @@ class TerminalTab(ttk.Notebook):
         ########################################################################
         # Create menu button
         ########################################################################
-        self.frameNav = tk.Frame(self)
+        self.frameNav = tk.Frame(self.parent)
         self.frameNav.place(rely=0, relx=1.0, x=-10, y=17, anchor="e")
 
         self.iconHamburger  = PhotoImage(file=get_absolute_path(__file__, "../img", "hamburger.png"))
@@ -226,7 +226,7 @@ class TerminalTab(ttk.Notebook):
     def _insert_new_tab(self):
         """ Insert new tab event """
 
-        terminal = TerminalWidget(self)
+        terminal = TerminalWidget(self.parent)
 
         if self.splashText:
             terminal.update_shell(print_basename=False)
