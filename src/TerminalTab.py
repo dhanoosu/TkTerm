@@ -23,6 +23,7 @@ class TerminalTab(ttk.Notebook):
         self.bind("<B1-Motion>", self._reorder_tab)
         self.bind("<ButtonRelease-2>", lambda e: self._close_tab(event=e))
         self.bind("<<NotebookTabChanged>>", self._tab_clicked)
+        self.bind('<Double-Button-1>', self._tab_rename)
 
         ########################################################################
         # Add default tabs
@@ -46,6 +47,8 @@ class TerminalTab(ttk.Notebook):
         self.iconNextTab    = PhotoImage(file=get_absolute_path(__file__, "../img", "next_tab.png"))
         self.iconPrevTab    = PhotoImage(file=get_absolute_path(__file__, "../img", "prev_tab.png"))
         self.iconCloseTab   = PhotoImage(file=get_absolute_path(__file__, "../img", "close_tab.png"))
+
+        self.renameCloseButton = PhotoImage(file=get_absolute_path(__file__, "../img", "close.png"))
 
         self.buttonTabList = tk.Button(
             self.frameNav,
@@ -335,4 +338,103 @@ class TerminalTab(ttk.Notebook):
             # self.event_generate("<<NotebookTabClosed>>")
 
         except Exception:
+            pass
+
+    def _tab_rename(self, event):
+        """ Rename a tab """
+
+        def _accept_change(event):
+            """ Accept a change """
+
+            self.tab(tab_id, text=field.get())
+
+            buttonClose.destroy()
+            entry.destroy()
+            frameInner.destroy()
+            frame.destroy()
+
+            terminal.TerminalScreen.focus_set()
+
+        def _focus_out(*event):
+            """ On focus out destroy all created widgets """
+
+            buttonClose.destroy()
+            entry.destroy()
+            frameInner.destroy()
+            frame.destroy()
+
+            terminal.TerminalScreen.focus_set()
+
+        def _on_enter(event):
+            event.widget["bg"] = INNER_BG
+            event.widget["activebackground"] = INNER_BG
+
+        def _on_leave(event):
+            event.widget["bg"] = OUTER_BG
+
+        try:
+
+            # Define colors
+            OUTER_BG = "#212224"
+            INNER_BG = "#414755"
+
+            # Get the selected tab
+            index = self.index(f"@{event.x},{event.y}")
+            self.select(index)
+            tab_id = self.select()
+
+            # Get the associated terminal widget
+            terminal = self.nametowidget(tab_id)
+
+            # Create a popup frame attached to terminal
+            frame = tk.Frame(terminal, bg=OUTER_BG)
+            frame.place(rely=0, x=event.x, y=13, anchor="w")
+
+            frameInner = tk.Frame(frame, bg=OUTER_BG)
+            frameInner.pack(expand=True, fill=BOTH, padx=5, pady=5)
+
+            field = StringVar()
+
+            entry = tk.Entry(
+                frameInner,
+                textvariable=field,
+                bd=0,
+                width=10,
+                bg=INNER_BG,
+                fg="white",
+                insertbackground="white",
+                borderwidth=0,
+                font="Helvetica 9"
+            )
+
+            entry.pack(side=LEFT, expand=True, fill=BOTH)
+
+            buttonClose = tk.Button(
+                frameInner,
+                image=self.renameCloseButton,
+                bg=OUTER_BG,
+                relief=FLAT,
+                bd=0,
+                highlightbackground=OUTER_BG,
+                command=_focus_out
+            )
+
+            buttonClose.pack(side=LEFT, padx=(5, 0))
+
+            # Get the tab label
+            field.set(self.tab(tab_id, option="text"))
+
+            # Set focus to Entry box and select all text by default
+            entry.focus()
+            entry.select_range(0, END)
+
+            # Bind keys
+            entry.bind("<Return>", _accept_change)
+            entry.bind("<FocusOut>", _focus_out)
+            entry.bind("<Escape>", _focus_out)
+
+            buttonClose.bind("<Enter>", _on_enter)
+            buttonClose.bind("<Leave>", _on_leave)
+
+        except tk.TclError:
             pass

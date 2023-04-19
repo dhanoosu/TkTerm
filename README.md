@@ -9,7 +9,7 @@ Under the hood it executes commands using Python's *subprocess* module and spawn
 
 ## Features
 - Compatible with Windows and Unix systems
-- Tabbed Terminal - `click & drag` to reorder and `middle-click` to close tab
+- Tabbed Terminal - `click & drag` to reorder, `middle-click` to close tab, `double-click` to rename
 - Return Code (RC) of previous run commands is shown at the bottom status bar
 - Settings to customise colours, font and cursor shape
 - **Ctrl-C** to kill current running process
