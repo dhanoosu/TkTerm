@@ -774,7 +774,7 @@ class TerminalWidget(tk.Frame):
 
         if self.TerminalScreen.tag_ranges("sel"):
             firstSelectedIndex = self.TerminalScreen.index("sel.first").split(".")[1]
-            if int(firstSelectedIndex)>= len(self.get_last_basename()):
+            if int(firstSelectedIndex) >= len(self.get_last_basename()):
                 self.TerminalScreen.delete("sel.first", "sel.last")
                 return "break"
 
