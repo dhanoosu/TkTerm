@@ -353,6 +353,8 @@ class TerminalWidget(tk.Frame):
         self.TerminalScreen.bind("<ButtonRelease-2>",   self.do_middleClickRelease)
         self.TerminalScreen.bind("<Tab>",               self.do_keyTab)
         self.TerminalScreen.bind("<Home>",              self.do_keyHome)
+        self.TerminalScreen.bind("<Control-a>",         self.do_selectAll)
+        self.TerminalScreen.bind("<Control-A>",         self.do_selectAll)
         self.TerminalScreen.unbind("<B1-Motion>")
 
     def unbind_keys(self):
@@ -369,6 +371,8 @@ class TerminalWidget(tk.Frame):
         self.TerminalScreen.bind("<ButtonRelease-2>",   lambda event: "break")
         self.TerminalScreen.bind("<Tab>",               lambda event: "break")
         self.TerminalScreen.bind("<Home>",              lambda event: "break")
+        self.TerminalScreen.bind("<Control-a>",         lambda event: "break")
+        self.TerminalScreen.bind("<Control-A>",         lambda event: "break")
         self.TerminalScreen.bind("<B1-Motion>",         lambda event: "break")
 
     def rollWheel(self, event):
@@ -636,6 +640,16 @@ class TerminalWidget(tk.Frame):
             self.stdout.write(return_cmd, end='')
 
         return "break"
+        
+    def do_selectAll(self, *args):
+        """ Select typed text """
+        
+        endIndex = self.TerminalScreen.index("end-1c")
+        firstIndex =  str(endIndex.split(".")[0]) + "." + str(len(self.get_last_basename()))
+        
+        self.TerminalScreen.tag_add("sel", firstIndex, endIndex)
+        
+        return "break"
 
     def do_leftClickRelease(self, *args):
 
@@ -758,8 +772,14 @@ class TerminalWidget(tk.Frame):
     def do_keyBackspace(self, *args):
         """ Delete a character until the basename """
 
-        index = self.TerminalScreen.index("insert-1c")
+        if self.TerminalScreen.tag_ranges("sel"):
+            firstSelectedIndex = self.TerminalScreen.index("sel.first").split(".")[1]
+            if int(firstSelectedIndex)>= len(self.get_last_basename()):
+                self.TerminalScreen.delete("sel.first", "sel.last")
+                return "break"
 
+        index = self.TerminalScreen.index("insert-1c")
+        
         if int(str(index).split('.')[1]) >= len(self.get_last_basename()):
             self.TerminalScreen.delete(index)
 
