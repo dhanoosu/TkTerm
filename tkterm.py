@@ -67,6 +67,16 @@ class Terminal(tk.Frame):
 
         Interpreter.add_interpreter(*args, **kwargs)
 
+    def run_command(self, cmd):
+        """ Run command on current terminal tab """
+
+        # Get the selected tab
+        tab_id = self.notebook.select()
+
+        # Get the associated terminal widget
+        terminal = self.notebook.nametowidget(tab_id)
+        terminal.run_command(cmd)
+
     def on_resize(self, event):
         """Auto scroll to bottom when resize event happens"""
 
