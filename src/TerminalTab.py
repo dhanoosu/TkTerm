@@ -452,46 +452,46 @@ class TerminalTab(ttk.Notebook):
             frameInner.destroy()
             frame.destroy()
 
+            tab_id = self.select()
+            terminal = self.nametowidget(tab_id)
             terminal.TerminalScreen.focus_set()
 
-        # Get the selected tab
-        tab_id = self.select()
+        # Define colors
+        OUTER_BG = "#9da5b4"
+        INNER_BG = "#414755"
 
-        # Get the associated terminal widget
-        terminal = self.nametowidget(tab_id)
+        # Get screen dimension
+        root_width = self.parent.winfo_width()
+        root_height = self.parent.winfo_height()
 
-        # Terminal dimension
-        root_width = terminal.winfo_width()
-        root_height = terminal.winfo_height()
-
-        # Create background to replace terminal screen
-        background = tk.Label(terminal, bg="#bdbdbd", width=root_width, height=root_height)
+        # Fill background to cover whole screen
+        background = tk.Label(self.parent, bg=OUTER_BG, width=root_width, height=root_height)
         background.place(x=0, y=0)
 
         # Create a popup frame
-        frame = tk.Frame(terminal)
+        frame = tk.Frame(self.parent, bg=INNER_BG)
         frame.place(relx=0.5, rely=0.5, anchor="center")
 
         # Inner frame
-        frameInner = tk.Frame(frame)
+        frameInner = tk.Frame(frame, bg=INNER_BG)
         frameInner.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
         about_text = """
-TkTerm - Terminal Emulator built on tkinter library
+TkTerm - Terminal Emulator built on Tkinter library
 
 Created by Dhanoo Surasarang
 Github @dhanoosu
 
 """
 
-        labelIcon = tk.Label(frameInner, image=self.iconApp)
+        labelIcon = tk.Label(frameInner, image=self.iconApp, bg=INNER_BG)
         labelIcon.pack(side=TOP)
 
-        labelAbout = tk.Label(frameInner, text=about_text)
+        labelAbout = tk.Label(frameInner, text=about_text, bg=INNER_BG, fg="white")
         labelAbout.pack(side=TOP)
 
         # Area for buttons
-        frameButton = tk.Frame(frameInner)
+        frameButton = tk.Frame(frameInner, bg=INNER_BG)
         frameButton.pack(side=TOP)
 
         button1 = ttk.Button(frameButton, text="Visit github", takefocus=0, command=lambda : webbrowser.open("https://github.com/dhanoosu/TkTerm"))
