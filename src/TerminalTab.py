@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 
+import webbrowser
+
 from src.Utils import *
 from src.Config import TkTermConfig
 from src.TerminalScreen import TerminalWidget
@@ -48,7 +50,8 @@ class TerminalTab(ttk.Notebook):
         self.iconPrevTab    = PhotoImage(file=get_absolute_path(__file__, "../img", "prev_tab.png"))
         self.iconCloseTab   = PhotoImage(file=get_absolute_path(__file__, "../img", "close_tab.png"))
 
-        self.renameCloseButton = PhotoImage(file=get_absolute_path(__file__, "../img", "close.png"))
+        self.renameCloseButton  = PhotoImage(file=get_absolute_path(__file__, "../img", "close.png"))
+        self.iconApp            = PhotoImage(file=get_absolute_path(__file__, "../img", "app_icon.png"))
 
         self.buttonTabList = tk.Button(
             self.frameNav,
@@ -198,7 +201,7 @@ class TerminalTab(ttk.Notebook):
 
         self.tabListMenu.add_separator()
 
-        self.tabListMenu.add_command(label="About TkTerm ...")
+        self.tabListMenu.add_command(label="About TkTerm ...", command=self._about_page)
 
         self.tabListMenu.bind("<FocusOut>", lambda e: (
             e.widget.destroy(),
@@ -347,13 +350,7 @@ class TerminalTab(ttk.Notebook):
             """ Accept a change """
 
             self.tab(tab_id, text=field.get())
-
-            buttonClose.destroy()
-            entry.destroy()
-            frameInner.destroy()
-            frame.destroy()
-
-            terminal.TerminalScreen.focus_set()
+            _focus_out()
 
         def _focus_out(*event):
             """ On focus out destroy all created widgets """
@@ -415,6 +412,7 @@ class TerminalTab(ttk.Notebook):
                 bg=OUTER_BG,
                 relief=FLAT,
                 bd=0,
+                height=15,
                 highlightbackground=OUTER_BG,
                 command=_focus_out
             )
@@ -438,3 +436,70 @@ class TerminalTab(ttk.Notebook):
 
         except tk.TclError:
             pass
+
+    def _about_page(self):
+        """ About page """
+
+        def _focus_out(*event):
+            """ On focus out destroy all created widgets """
+
+            background.destroy()
+            button1.destroy()
+            button2.destroy()
+            frameButton.destroy()
+            labelAbout.destroy()
+            labelIcon.destroy()
+            frameInner.destroy()
+            frame.destroy()
+
+            terminal.TerminalScreen.focus_set()
+
+        # Get the selected tab
+        tab_id = self.select()
+
+        # Get the associated terminal widget
+        terminal = self.nametowidget(tab_id)
+
+        # Terminal dimension
+        root_width = terminal.winfo_width()
+        root_height = terminal.winfo_height()
+
+        # Create background to replace terminal screen
+        background = tk.Label(terminal, bg="#bdbdbd", width=root_width, height=root_height)
+        background.place(x=0, y=0)
+
+        # Create a popup frame
+        frame = tk.Frame(terminal)
+        frame.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Inner frame
+        frameInner = tk.Frame(frame)
+        frameInner.pack(expand=True, fill=BOTH, padx=20, pady=20)
+
+        about_text = """
+TkTerm - Terminal Emulator built on tkinter library
+
+Created by Dhanoo Surasarang
+Github @dhanoosu
+
+"""
+
+        labelIcon = tk.Label(frameInner, image=self.iconApp)
+        labelIcon.pack(side=TOP)
+
+        labelAbout = tk.Label(frameInner, text=about_text)
+        labelAbout.pack(side=TOP)
+
+        # Area for buttons
+        frameButton = tk.Frame(frameInner)
+        frameButton.pack(side=TOP)
+
+        button1 = ttk.Button(frameButton, text="Visit github", takefocus=0, command=lambda : webbrowser.open("https://github.com/dhanoosu/TkTerm"))
+        button1.pack(side=LEFT, expand=True, padx=5, ipadx=10)
+
+        button2 = ttk.Button(frameButton, text="OK", takefocus=0, command=_focus_out)
+        button2.pack(side=LEFT, expand=True, padx=5)
+
+        # Bind keys
+        frame.bind("<FocusOut>", _focus_out)
+        background.bind("<ButtonRelease-1>", _focus_out)
