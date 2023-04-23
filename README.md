@@ -2,7 +2,7 @@
 A fully functional terminal emulator built on Tkinter library - perform all basic commands of a terminal
 
 <p align="center">
-<img src="img/snapshot2.png">
+<img src="tkterm/img/snapshot2.png">
 </p>
 
 Under the hood it executes commands using Python's *subprocess* module and spawn as a thread. Pressing `Ctrl-C` will terminate current running command. Supports Unix shells (`sh` and `bash`) and Window's Command Prompt (`cmd.exe`) commands.
@@ -50,7 +50,7 @@ root.mainloop()
 Customise Terminal interface by `Right-click > Settings...`
 
 <p align="center">
-<img src="img/settings.png">
+<img src="tkterm/img/settings.png">
 </p>
 
 **Note**: \
