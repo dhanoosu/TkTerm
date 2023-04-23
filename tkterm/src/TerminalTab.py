@@ -4,6 +4,7 @@ from tkinter import ttk
 
 import webbrowser
 
+from version import __version__
 from src.Utils import *
 from src.Config import TkTermConfig
 from src.TerminalScreen import TerminalWidget
@@ -476,8 +477,9 @@ class TerminalTab(ttk.Notebook):
         frameInner = tk.Frame(frame, bg=INNER_BG)
         frameInner.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
-        about_text = """
+        about_text = f"""
 TkTerm - Terminal Emulator built on Tkinter library
+Version: {__version__}
 
 Created by Dhanoo Surasarang
 Github @dhanoosu

@@ -1,4 +1,4 @@
-from tkterm import __version__ as version
+from tkterm import __version__
 from setuptools import setup, find_packages
 
 def read_from_file(path):
@@ -11,7 +11,7 @@ def read_from_file(path):
 
 attrs = dict(
     name="tkterm",
-    version=version,
+    version=__version__,
     packages=find_packages(),
     include_package_data=True,
     long_description=read_from_file("README.md"),
