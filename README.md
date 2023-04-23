@@ -1,3 +1,7 @@
+[![PyPI](https://img.shields.io/pypi/v/tkterm)](https://pypi.org/project/tkterm)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tkterm)
+![Platform](https://img.shields.io/powershellgallery/p/Pester?color=blue)
+
 # TkTerm - Tkinter Terminal Emulator
 A fully functional terminal emulator built on Tkinter library - perform all basic commands of a terminal
 
@@ -73,12 +77,12 @@ $>> echo I ^
 I have apple and banana
 ```
 
-## Links
-
-- **GitHub:** https://github.com/dhanoosu/TkTerm
-
 ## Author
 
 Developed by Dhanoo Surasarang
 
 Github: [@dhanoosu](https://github.com/dhanoosu)
+
+## Links
+
+- **GitHub:** https://github.com/dhanoosu/TkTerm
