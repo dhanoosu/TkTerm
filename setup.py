@@ -57,7 +57,7 @@ attrs = dict(
     include_package_data_info=True,
 )
 
-if "b" in version:
+if "b" in __version__:
     attrs["classifiers"].insert(0, "Development Status :: 4 - Beta")
 else:
     attrs["classifiers"].insert(0, "Development Status :: 5 - Production/Stable")
