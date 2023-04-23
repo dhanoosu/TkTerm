@@ -340,6 +340,8 @@ class TerminalWidget(tk.Frame):
                 self.style.configure("Terminal.Vertical.TScrollbar", background="#3A3E48")
 
     def bind_keys(self):
+        self.TerminalScreen.bind("<FocusOut>",          self.focus_out)
+
         self.TerminalScreen.bind("<Return>",            self.do_keyReturn)
         self.TerminalScreen.bind("<Up>",                self.do_keyUpArrow)
         self.TerminalScreen.bind("<Down>",              self.do_keyDownArrow)
@@ -380,6 +382,11 @@ class TerminalWidget(tk.Frame):
         self.TerminalScreen.yview_scroll(direction, UNITS)
 
         return "break"
+
+    def focus_out(self, event):
+        """When out of focus, store the last insertion index """
+
+        self.insertionIndex = self.TerminalScreen.index("insert")
 
     def do_keyPress(self, event):
 
@@ -643,6 +650,7 @@ class TerminalWidget(tk.Frame):
         self.TerminalScreen["insertwidth"] = 1
         self.TerminalScreen["insertbackground"] = "white"
 
+        self.TerminalScreen.focus_set()
         self.TerminalScreen.mark_set("insert", self.insertionIndex)
 
     def do_middleClickRelease(self, *args):
