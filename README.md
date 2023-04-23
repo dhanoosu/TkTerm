@@ -27,15 +27,36 @@ The Tkinter GUI library is built into Python, so no 3rd party library is require
 
 Requires at least Python version 3.x and above.
 
-## Standalone usage
-Run standalone script simply with
+## Installation
+Get it from Github or PIP package manager
 
 ```bash
-$> python tkterm/tkterm.py
+# From github
+git clone https://github.com/dhanoosu/TkTerm.git
+
+# From package manager
+pip install tkterm
+```
+
+## Standalone usage
+Navigate to downloaded folder and run script with
+
+```bash
+cd TkTerm
+
+# Either of these will work
+python tkterm
+python tkterm/tkterm.py
+```
+
+If package was installed via pip
+
+```bash
+python -m tkterm
 ```
 
 ## Integration with other Tkinter application
-The Terminal is implemented as a `Frame` widget and can be easily be integrated to other Tkinter application by
+The Terminal is implemented as a `Frame` widget and can easily be integrated to other Tkinter application by
 
 ```python
 import tkinter as tk
@@ -49,6 +70,13 @@ terminal.pack(fill=BOTH, expand=True)
 
 root.mainloop()
 ```
+
+> If downloaded via github append to system path before import
+> ```python
+> import sys
+> sys.path.insert(0, "./TkTerm")
+> from tkterm import Terminal
+> ```
 
 ## Customisation options
 Customise Terminal interface by `Right-click > Settings...`
