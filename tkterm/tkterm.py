@@ -19,7 +19,6 @@ from src.Utils import get_absolute_path
 from src.Config import TkTermConfig
 
 class Terminal(tk.Frame):
-
     """ Terminal widget """
 
     def __init__(self, parent, text=None, *args, **kwargs):
@@ -90,7 +89,8 @@ class Terminal(tk.Frame):
 
         # self.statusText.set(self.TerminalScreen.winfo_height())
 
-if __name__ == "__main__":
+def main():
+    """ Main function """
 
     root = tk.Tk()
     root.title("TkTerm - Terminal Emulator")
@@ -104,3 +104,6 @@ if __name__ == "__main__":
 
     ExitDiaglogBox(root, icon)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()

@@ -1,3 +1,4 @@
+from tkterm import __version__ as version
 from setuptools import setup, find_packages
 
 def read_from_file(path):
@@ -10,7 +11,7 @@ def read_from_file(path):
 
 attrs = dict(
     name="tkterm",
-    version="0.0.0b1",
+    version=version,
     packages=find_packages(),
     include_package_data=True,
     long_description=read_from_file("README.md"),
@@ -42,8 +43,6 @@ attrs = dict(
         "tkterminal"
     ],
     classifiers=[
-        # "Development Status :: 5 - Production/Stable",
-        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
         "Intended Audience :: End Users/Desktop",
@@ -53,9 +52,14 @@ attrs = dict(
     ],
     project_urls={
         "Documentation": "https://github.com/dhanoosu/TkTerm/blob/master/README.md",
-        "Bug Tracker": "https://github.com/dhanoosu/tkterm/issues",
+        "Bug Tracker": "https://github.com/dhanoosu/TkTerm/issues",
     },
     include_package_data_info=True,
 )
+
+if "b" in version:
+    attrs["classifiers"].insert(0, "Development Status :: 4 - Beta")
+else:
+    attrs["classifiers"].insert(0, "Development Status :: 5 - Production/Stable")
 
 setup(**attrs)
