@@ -27,7 +27,7 @@ Requires at least Python version 3.x and above.
 Run standalone script simply with
 
 ```bash
-$> python tkterm.py
+$> python tkterm/tkterm.py
 ```
 
 ## Integration with other Tkinter application
