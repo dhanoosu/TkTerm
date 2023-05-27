@@ -7,9 +7,10 @@ from tkinter import ttk
 from tkinter import font
 from tkinter.font import Font
 
-import threading
 import os
 import sys
+import platform
+import threading
 import subprocess
 
 from .Utils import *
@@ -162,7 +163,8 @@ class TerminalWidget(tk.Frame):
         self.TerminalScreen.bind("<Control-t>", lambda e: self.event_generate("<<eventNewTab>>") or "break")
         self.TerminalScreen.bind('<Control-Tab>', lambda e: self.event_generate("<<eventCycleNextTab>>") or "break")
 
-        if os.name == "nt":
+        # Windows or Mac
+        if (platform.system() == "Windows") or (platform.system() == "Darwin"):
             self.TerminalScreen.bind('<Shift-Tab>', lambda e: self.event_generate("<<eventCyclePrevTab>>") or "break")
         else:
             self.TerminalScreen.bind('<ISO_Left_Tab>', lambda e: self.event_generate("<<eventCyclePrevTab>>") or "break")
