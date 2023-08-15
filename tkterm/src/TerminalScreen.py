@@ -160,6 +160,7 @@ class TerminalWidget(tk.Frame):
         self.scrollbar.bind('<MouseWheel>', self.rollWheel)
 
         self.TerminalScreen.bind('<Control-c>', self.do_cancel)
+        self.TerminalScreen.bind('<Control-l>', self.do_clear_screen)
         self.TerminalScreen.bind("<Control-t>", lambda e: self.event_generate("<<eventNewTab>>") or "break")
         self.TerminalScreen.bind('<Control-Tab>', lambda e: self.event_generate("<<eventCycleNextTab>>") or "break")
 
@@ -343,7 +344,6 @@ class TerminalWidget(tk.Frame):
 
     def bind_keys(self):
         self.TerminalScreen.bind("<FocusOut>",          self.focus_out)
-
         self.TerminalScreen.bind("<Return>",            self.do_keyReturn)
         self.TerminalScreen.bind("<Up>",                self.do_keyUpArrow)
         self.TerminalScreen.bind("<Down>",              self.do_keyDownArrow)
@@ -525,12 +525,6 @@ class TerminalWidget(tk.Frame):
             self.top.print_basename()
             self.top.processTerminated = False
 
-    def clear_screen(self):
-        """ Clear screen and print basename """
-
-        self.TerminalScreen.delete("1.0", END)
-        self.print_basename()
-
     def print_basename(self):
         """ Print basename on Terminal """
 
@@ -557,15 +551,6 @@ class TerminalWidget(tk.Frame):
 
         return basename
 
-
-    def do_keyHome(self, *args):
-        """ Press HOME to return to the start position of command """
-
-        pos = self.get_pos_after_basename()
-
-        self.TerminalScreen.mark_set("insert", pos)
-        return "break"
-
     def get_pos_after_basename(self):
         """ Return starting position of the command """
 
@@ -576,12 +561,26 @@ class TerminalWidget(tk.Frame):
 
         return new_pos
 
+    def do_keyHome(self, *args):
+        """ Press HOME to return to the start position of command """
+
+        pos = self.get_pos_after_basename()
+
+        self.TerminalScreen.mark_set("insert", pos)
+        return "break"
+
     def get_cmd(self):
         """ Return command after the basename """
 
         pos = self.get_pos_after_basename()
         return self.TerminalScreen.get(pos, "end-1c")
 
+    def do_clear_screen(self, *args):
+        """ Clear screen and print basename """
+
+        self.TerminalScreen.delete("1.0", END)
+        self.print_basename()
+    
     def delete_cmd(self):
         """ Delete command after basename """
 
@@ -718,7 +717,6 @@ class TerminalWidget(tk.Frame):
 
         # Valid command
         else:
-
             # Add to command history
             if cmd in self.commandHistory:
                 self.commandHistory.pop(self.commandIndex)
@@ -734,7 +732,7 @@ class TerminalWidget(tk.Frame):
                 self.caretHandling = False
 
             if cmd == "clear" or cmd == "reset":
-                self.clear_screen()
+                self.event_generate('<Control-l>')
 
             elif "cd" in cmd.split()[0]:
                 path = ' '.join(cmd.split()[1:])
